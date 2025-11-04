@@ -1,14 +1,11 @@
 FROM python:3.10-slim
 
-# Устанавливаем FFmpeg и зависимости
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     ca-certificates \
+    opus-tools \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
-
-# Проверяем установку FFmpeg
-RUN ffmpeg -version
 
 WORKDIR /app
 
@@ -21,5 +18,6 @@ RUN mkdir -p data/playlists
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONHTTPSVERIFY=0
+ENV FFMPEG_BINARY=ffmpeg
 
 CMD ["python", "main.py"]

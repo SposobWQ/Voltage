@@ -4,17 +4,43 @@ from discord import app_commands
 import asyncio
 from utils.audio_source import YTDLSource
 from utils.pagination import PaginationView
+from config import ADMIN_ROLE_NAMES, BOT_OWNER_ID
+
+def is_admin():
+    async def predicate(interaction: discord.Interaction):
+        # Проверка владельца бота
+        if interaction.user.id == BOT_OWNER_ID:
+            return True
+        
+        # Проверка прав администратора на сервере
+        if interaction.user.guild_permissions.administrator:
+            return True
+        
+        # Проверка ролей администратора
+        user_roles = [role.name for role in interaction.user.roles]
+        if any(role_name in ADMIN_ROLE_NAMES for role_name in user_roles):
+            return True
+            
+        await interaction.response.send_message("❌ У вас нет прав для использования этой команды!", ephemeral=True)
+        return False
+    return app_commands.check(predicate)
 
 class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.voice_clients = {}
         self.queues = {}
+        self.quality_settings = {}
 
     def get_queue(self, guild_id):
         if guild_id not in self.queues:
             self.queues[guild_id] = []
         return self.queues[guild_id]
+
+    def get_quality_setting(self, guild_id):
+        if guild_id not in self.quality_settings:
+            self.quality_settings[guild_id] = 'medium'
+        return self.quality_settings[guild_id]
 
     async def play_next(self, guild_id):
         queue = self.get_queue(guild_id)
@@ -22,7 +48,14 @@ class Music(commands.Cog):
             voice_client = self.voice_clients[guild_id]
             if not voice_client.is_playing():
                 next_song = queue.pop(0)
-                voice_client.play(next_song, after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(guild_id), self.bot.loop))
+                await asyncio.sleep(0.1)
+                
+                def after_play(error):
+                    if error:
+                        print(f'Ошибка воспроизведения: {error}')
+                    asyncio.run_coroutine_threadsafe(self.play_next(guild_id), self.bot.loop)
+                
+                voice_client.play(next_song, after=after_play)
 
     class SongSelect(discord.ui.Select):
         def __init__(self, songs, music_cog):
@@ -45,7 +78,6 @@ class Music(commands.Cog):
         async def callback(self, interaction: discord.Interaction):
             selected_index = int(self.values[0])
             selected_song = self.songs[selected_index]
-            
             await self.music_cog.play_selected_song(interaction, selected_song)
 
     class SongSelectView(discord.ui.View):
@@ -54,7 +86,6 @@ class Music(commands.Cog):
             self.add_item(Music.SongSelect(songs, music_cog))
 
     async def play_selected_song(self, interaction: discord.Interaction, song):
-        """Воспроизведение выбранной песни"""
         await interaction.response.defer()
         
         if not interaction.user.voice:
@@ -64,7 +95,6 @@ class Music(commands.Cog):
         voice_channel = interaction.user.voice.channel
         guild_id = interaction.guild.id
         
-        # Подключение к голосовому каналу
         if guild_id in self.voice_clients:
             voice_client = self.voice_clients[guild_id]
             if voice_client.channel != voice_channel:
@@ -97,20 +127,19 @@ class Music(commands.Cog):
                     color=discord.Color.green()
                 )
                 embed.add_field(name="Длительность", value=song.get('duration_string', 'Неизвестно'))
-                embed.add_field(name="Канал", value=voice_channel.name)
+                embed.add_field(name="Качество", value=self.get_quality_setting(guild_id))
                 
                 await interaction.followup.send(embed=embed)
                 
         except Exception as e:
             await interaction.followup.send(f"❌ Ошибка при воспроизведении: {str(e)}")
 
+    # ОБЩИЕ КОМАНДЫ
     @app_commands.command(name="play", description="Найти и воспроизвести музыку")
     @app_commands.describe(query="Название песни или ссылка")
     async def play(self, interaction: discord.Interaction, query: str):
-        """Команда для воспроизведения музыки"""
         await interaction.response.defer()
         
-        # Прямое воспроизведение по ссылке
         if query.startswith(('http', 'www.')):
             try:
                 if not interaction.user.voice:
@@ -152,7 +181,6 @@ class Music(commands.Cog):
                 await interaction.followup.send(f"❌ Ошибка: {str(e)}")
             return
         
-        # Поиск песен
         try:
             songs = await YTDLSource.search_songs(query, limit=10)
             
@@ -182,51 +210,8 @@ class Music(commands.Cog):
         except Exception as e:
             await interaction.followup.send(f"❌ Ошибка при поиске: {str(e)}")
 
-    @app_commands.command(name="queue", description="Показать очередь воспроизведения")
-    async def queue(self, interaction: discord.Interaction):
-        """Показать текущую очередь"""
-        queue = self.get_queue(interaction.guild.id)
-        
-        if not queue:
-            await interaction.response.send_message("📭 Очередь пуста!")
-            return
-        
-        embeds = []
-        items_per_page = 5
-        
-        for i in range(0, len(queue), items_per_page):
-            embed = discord.Embed(title="📋 Очередь воспроизведения", color=discord.Color.gold())
-            page_songs = queue[i:i + items_per_page]
-            
-            for j, song in enumerate(page_songs, i + 1):
-                embed.add_field(
-                    name=f"{j}. {song.title}",
-                    value=f"Длительность: {self.format_duration(song.duration)}",
-                    inline=False
-                )
-            
-            embed.set_footer(text=f"Страница {i//items_per_page + 1}/{(len(queue)-1)//items_per_page + 1}")
-            embeds.append(embed)
-        
-        view = PaginationView(embeds) if len(embeds) > 1 else None
-        await interaction.response.send_message(embed=embeds[0], view=view)
-
-    @app_commands.command(name="skip", description="Пропустить текущий трек")
-    async def skip(self, interaction: discord.Interaction):
-        """Пропустить текущую песню"""
-        if interaction.guild.id in self.voice_clients:
-            voice_client = self.voice_clients[interaction.guild.id]
-            if voice_client.is_playing():
-                voice_client.stop()
-                await interaction.response.send_message("⏭️ Трек пропущен")
-            else:
-                await interaction.response.send_message("❌ Сейчас ничего не играет")
-        else:
-            await interaction.response.send_message("❌ Бот не подключен к голосовому каналу")
-
-    @app_commands.command(name="stop", description="Остановить воспроизведение и очистить очередь")
+    @app_commands.command(name="stop", description="Остановить воспроизведение")
     async def stop(self, interaction: discord.Interaction):
-        """Остановить музыку"""
         guild_id = interaction.guild.id
         
         if guild_id in self.voice_clients:
@@ -237,35 +222,63 @@ class Music(commands.Cog):
         else:
             await interaction.response.send_message("❌ Бот не воспроизводит музыку")
 
-    @app_commands.command(name="pause", description="Приостановить воспроизведение")
-    async def pause(self, interaction: discord.Interaction):
-        """Приостановить музыку"""
+    @app_commands.command(name="skip", description="Пропустить текущий трек")
+    async def skip(self, interaction: discord.Interaction):
         if interaction.guild.id in self.voice_clients:
             voice_client = self.voice_clients[interaction.guild.id]
             if voice_client.is_playing():
-                voice_client.pause()
-                await interaction.response.send_message("⏸️ Воспроизведение приостановлено")
+                voice_client.stop()
+                await interaction.response.send_message("⏭️ Трек пропущен")
             else:
-                await interaction.response.send_message("❌ Музыка не воспроизводится")
+                await interaction.response.send_message("❌ Сейчас ничего не играет")
         else:
             await interaction.response.send_message("❌ Бот не подключен к голосовому каналу")
 
-    @app_commands.command(name="resume", description="Возобновить воспроизведение")
-    async def resume(self, interaction: discord.Interaction):
-        """Возобновить музыку"""
-        if interaction.guild.id in self.voice_clients:
-            voice_client = self.voice_clients[interaction.guild.id]
-            if voice_client.is_paused():
-                voice_client.resume()
-                await interaction.response.send_message("▶️ Воспроизведение возобновлено")
+    @app_commands.command(name="queue", description="Показать очередь воспроизведения")
+    async def queue(self, interaction: discord.Interaction):
+        queue = self.get_queue(interaction.guild.id)
+        
+        if not queue:
+            await interaction.response.send_message("📭 Очередь пуста!")
+            return
+        
+        embed = discord.Embed(title="📋 Очередь воспроизведения", color=discord.Color.gold())
+        
+        for i, song in enumerate(queue[:10], 1):
+            embed.add_field(
+                name=f"{i}. {song.title}",
+                value=f"Длительность: {self.format_duration(song.duration)}",
+                inline=False
+            )
+        
+        if len(queue) > 10:
+            embed.set_footer(text=f"И еще {len(queue) - 10} песен...")
+        
+        await interaction.response.send_message(embed=embed)
+
+    # АДМИН КОМАНДЫ
+    @app_commands.command(name="volume", description="Изменить громкость (только для админов)")
+    @app_commands.describe(level="Уровень громкости (1-100)")
+    @is_admin()
+    async def volume(self, interaction: discord.Interaction, level: int):
+        if level < 1 or level > 100:
+            await interaction.response.send_message("❌ Громкость должна быть от 1 до 100!", ephemeral=True)
+            return
+        
+        guild_id = interaction.guild.id
+        if guild_id in self.voice_clients:
+            voice_client = self.voice_clients[guild_id]
+            if voice_client.source:
+                voice_client.source.volume = level / 100
+                await interaction.response.send_message(f"🔊 Громкость установлена на {level}%")
             else:
-                await interaction.response.send_message("❌ Музыка не приостановлена")
+                await interaction.response.send_message("❌ Сейчас ничего не играет")
         else:
             await interaction.response.send_message("❌ Бот не подключен к голосовому каналу")
 
-    @app_commands.command(name="disconnect", description="Отключить бота от голосового канала")
+    @app_commands.command(name="disconnect", description="Отключить бота от голосового канала (только для админов)")
+    @is_admin()
     async def disconnect(self, interaction: discord.Interaction):
-        """Отключиться от голосового канала"""
         guild_id = interaction.guild.id
         
         if guild_id in self.voice_clients:
@@ -278,14 +291,56 @@ class Music(commands.Cog):
         else:
             await interaction.response.send_message("❌ Бот не подключен к голосовому каналу")
 
+    @app_commands.command(name="clear_queue", description="Очистить очередь (только для админов)")
+    @is_admin()
+    async def clear_queue(self, interaction: discord.Interaction):
+        guild_id = interaction.guild.id
+        self.queues[guild_id] = []
+        await interaction.response.send_message("🗑️ Очередь очищена")
+
+    @app_commands.command(name="quality", description="Изменить качество звука (только для админов)")
+    @app_commands.describe(quality="Качество: low, medium, high")
+    @is_admin()
+    async def quality(self, interaction: discord.Interaction, quality: str):
+        quality = quality.lower()
+        if quality not in ['low', 'medium', 'high']:
+            await interaction.response.send_message("❌ Доступные качества: low, medium, high", ephemeral=True)
+            return
+        
+        self.quality_settings[interaction.guild.id] = quality
+        await interaction.response.send_message(f"🎚️ Качество установлено: **{quality}**")
+
+    @app_commands.command(name="pause", description="Приостановить воспроизведение (только для админов)")
+    @is_admin()
+    async def pause(self, interaction: discord.Interaction):
+        if interaction.guild.id in self.voice_clients:
+            voice_client = self.voice_clients[interaction.guild.id]
+            if voice_client.is_playing():
+                voice_client.pause()
+                await interaction.response.send_message("⏸️ Воспроизведение приостановлено")
+            else:
+                await interaction.response.send_message("❌ Музыка не воспроизводится")
+        else:
+            await interaction.response.send_message("❌ Бот не подключен к голосовому каналу")
+
+    @app_commands.command(name="resume", description="Возобновить воспроизведение (только для админов)")
+    @is_admin()
+    async def resume(self, interaction: discord.Interaction):
+        if interaction.guild.id in self.voice_clients:
+            voice_client = self.voice_clients[interaction.guild.id]
+            if voice_client.is_paused():
+                voice_client.resume()
+                await interaction.response.send_message("▶️ Воспроизведение возобновлено")
+            else:
+                await interaction.response.send_message("❌ Музыка не приостановлена")
+        else:
+            await interaction.response.send_message("❌ Бот не подключен к голосовому каналу")
+
     def format_duration(self, seconds):
-        """Форматирование длительности"""
         if not seconds:
             return "Неизвестно"
-        
         minutes, seconds = divmod(seconds, 60)
         hours, minutes = divmod(minutes, 60)
-        
         if hours > 0:
             return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
         else:

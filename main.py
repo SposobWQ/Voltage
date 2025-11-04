@@ -5,7 +5,7 @@ import asyncio
 import ssl
 from config import BOT_TOKEN
 
-# ГЛОБАЛЬНЫЙ SSL ФИКС В НАЧАЛЕ ФАЙЛА
+# SSL фикс
 ssl._create_default_https_context = ssl._create_unverified_context
 os.environ['PYTHONHTTPSVERIFY'] = '0'
 
@@ -31,8 +31,10 @@ class MusicBot(commands.Bot):
 
     async def on_ready(self):
         print(f'✅ Бот {self.user} запущен!')
+        print(f'📊 ID бота: {self.user.id}')
         print('🔒 SSL фикс активирован')
-        activity = discord.Activity(type=discord.ActivityType.listening, name="/play")
+        
+        activity = discord.Activity(type=discord.ActivityType.listening, name="/play | Качество: high")
         await self.change_presence(activity=activity)
 
 async def main():
@@ -40,7 +42,7 @@ async def main():
         print("❌ BOT_TOKEN не найден!")
         return
     
-    print("🚀 Запуск бота с SSL фиксом...")
+    print("🚀 Запуск бота с улучшенным качеством звука...")
     bot = MusicBot()
     
     try:
