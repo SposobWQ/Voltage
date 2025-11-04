@@ -1,0 +1,17 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+startCommand = "python main.py"
+
+[[services]]
+name = "discord-bot"
+
+[services.env]
+BOT_TOKEN = "{{.Secrets.BOT_TOKEN}}"
+BOT_OWNER_ID = "{{.Secrets.BOT_OWNER_ID}}"
+
+# НАСТРОЙКА ТОМА ДЛЯ СОХРАНЕНИЯ ДАННЫХ
+[[mounts]]
+name = "music-bot-data"
+mountPath = "/app/data"

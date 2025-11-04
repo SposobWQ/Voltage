@@ -46,22 +46,34 @@ FFMPEG_OPTIONS = {
     'options': '-vn -af "volume=1.0" -bufsize 512k -ac 2 -ar 48000'
 }
 
-# ПУТИ ДЛЯ СОХРАНЕНИЯ ДАННЫХ
-# На Railway используем /tmp для persistence или внешнее хранилище
+# АВТОМАТИЧЕСКОЕ ОПРЕДЕЛЕНИЕ ПУТЕЙ ДЛЯ RAILWAY
 IS_RAILWAY = os.getenv('RAILWAY_ENVIRONMENT') is not None
 
-if IS_RAILWAY:
-    # На Railway используем том для постоянного хранения
-    PLAYLISTS_DIR = "/app/data/playlists"
-    # Альтернативно можно использовать /tmp если том не настроен
-    if not os.path.exists('/app/data'):
-        PLAYLISTS_DIR = "/tmp/music_bot/playlists"
-else:
-    # Локальная разработка
-    PLAYLISTS_DIR = "data/playlists"
+def get_playlists_dir():
+    """Автоматически определяем лучшую директорию для хранения"""
+    # Проверяем доступность тома Railway
+    railway_volume_path = "/app/data/playlists"
+    
+    # Проверяем доступность /tmp (всегда доступен)
+    tmp_path = "/tmp/music_bot/playlists"
+    
+    # Создаем обе директории на всякий случай
+    os.makedirs(railway_volume_path, exist_ok=True)
+    os.makedirs(tmp_path, exist_ok=True)
+    
+    # Проверяем возможность записи в Railway volume
+    try:
+        test_file = os.path.join(railway_volume_path, "test_write.txt")
+        with open(test_file, 'w') as f:
+            f.write("test")
+        os.remove(test_file)
+        print("✅ Railway volume доступен для записи")
+        return railway_volume_path
+    except Exception:
+        print("⚠️ Railway volume недоступен, используем /tmp")
+        return tmp_path
 
-# Создаем директорию если не существует
-os.makedirs(PLAYLISTS_DIR, exist_ok=True)
+PLAYLISTS_DIR = get_playlists_dir()
 
 # Настройки прав
 ADMIN_ROLE_NAMES = ['Admin', 'Administrator', 'Модератор', 'Moderator']

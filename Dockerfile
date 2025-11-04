@@ -14,7 +14,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# СОЗДАЕМ ДИРЕКТОРИИ ДЛЯ ДАННЫХ
+# СОЗДАЕМ ДИРЕКТОРИИ ДЛЯ ДАННЫХ (БЕЗ VOLUME)
 RUN mkdir -p /app/data/playlists && \
     mkdir -p /tmp/music_bot/playlists && \
     chmod -R 755 /app/data /tmp/music_bot
@@ -22,8 +22,5 @@ RUN mkdir -p /app/data/playlists && \
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONHTTPSVERIFY=0
 ENV FFMPEG_BINARY=ffmpeg
-
-# Сообщаем Railway о томе для данных
-VOLUME ["/app/data"]
 
 CMD ["python", "main.py"]
