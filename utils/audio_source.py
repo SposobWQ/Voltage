@@ -1,16 +1,13 @@
 import discord
 import yt_dlp
 import asyncio
-from config import YDL_OPTIONS, FFMPEG_OPTIONS
 import ssl
+import urllib3
+from config import YDL_OPTIONS, FFMPEG_OPTIONS
 
-# Попытка обойти SSL проблемы
-try:
-    _create_unverified_https_context = ssl._create_unverified_context
-except AttributeError:
-    pass
-else:
-    ssl._create_default_https_context = _create_unverified_https_context
+# ГЛОБАЛЬНЫЙ SSL ФИКС
+ssl._create_default_https_context = ssl._create_unverified_context
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class YTDLSource(discord.PCMVolumeTransformer):
     def __init__(self, source, *, data, volume=0.5):
@@ -33,11 +30,34 @@ class YTDLSource(discord.PCMVolumeTransformer):
             filename = data['url'] if stream else ytdl.prepare_filename(data)
             return cls(discord.FFmpegPCMAudio(filename, **FFMPEG_OPTIONS), data=data)
         except Exception as e:
-            raise Exception(f"Ошибка при загрузке аудио: {str(e)}")
+            print(f"❌ Ошибка загрузки {url}: {e}")
+            # Пробуем упрощенный метод как запасной вариант
+            return await cls.simple_download(url)
+
+    @classmethod
+    async def simple_download(cls, url):
+        """Упрощенный метод загрузки как запасной вариант"""
+        simple_options = {
+            'format': 'bestaudio/best',
+            'nocheckcertificate': True,
+            'quiet': True,
+            'no_warnings': True,
+        }
+        try:
+            simple_ytdl = yt_dlp.YoutubeDL(simple_options)
+            loop = asyncio.get_event_loop()
+            data = await loop.run_in_executor(None, lambda: simple_ytdl.extract_info(url, download=False))
+            
+            if 'entries' in data:
+                data = data['entries'][0]
+            
+            return cls(discord.FFmpegPCMAudio(data['url'], **FFMPEG_OPTIONS), data=data)
+        except Exception as e:
+            raise Exception(f"Не удалось загрузить аудио: {str(e)}")
 
     @classmethod
     async def search_songs(cls, query, limit=10):
-        """Поиск песен с обработкой ошибок"""
+        """Поиск песен с обработкой SSL ошибок"""
         loop = asyncio.get_event_loop()
         search_query = f"ytsearch{limit}:{query}"
         
@@ -45,32 +65,19 @@ class YTDLSource(discord.PCMVolumeTransformer):
             try:
                 return ytdl.extract_info(search_query, download=False)
             except Exception as e:
-                print(f"Ошибка поиска: {e}")
+                error_msg = str(e)
+                if "SSL" in error_msg or "CERTIFICATE" in error_msg:
+                    print(f"🔒 SSL ошибка проигнорирована, возвращаем пустой результат")
+                    return {'entries': []}
+                print(f"❌ Ошибка поиска: {e}")
                 return {'entries': []}
         
         data = await loop.run_in_executor(None, extract)
         return data.get('entries', []) if 'entries' in data else []
 
-    @classmethod
-    async def get_playlist_info(cls, url):
-        """Получение информации о плейлисте с обработкой ошибок"""
-        loop = asyncio.get_event_loop()
-        
-        def extract():
-            try:
-                return ytdl.extract_info(url, download=False, process=False)
-            except Exception as e:
-                print(f"Ошибка получения плейлиста: {e}")
-                return None
-        
-        return await loop.run_in_executor(None, extract)
-
-# Инициализация yt-dlp с обработкой ошибок
+# Инициализация yt-dlp
 try:
     ytdl = yt_dlp.YoutubeDL(YDL_OPTIONS)
+    print("✅ yt-dlp инициализирован")
 except Exception as e:
-    print(f"Ошибка инициализации yt-dlp: {e}")
-    # Резервные настройки
-    YDL_OPTIONS['nocheckcertificate'] = True
-    YDL_OPTIONS['ssl_verify'] = False
-    ytdl = yt_dlp.YoutubeDL(YDL_OPTIONS)
+    print(f"❌ Ошибка yt-dlp: {e}")

@@ -1,17 +1,22 @@
 import os
+import ssl
 from dotenv import load_dotenv
 
 load_dotenv()
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 
-# Настройки для yt-dlp с отключенной SSL проверкой
+# ФИКС SSL ОШИБКИ - добавляем в самое начало
+ssl._create_default_https_context = ssl._create_unverified_context
+os.environ['PYTHONHTTPSVERIFY'] = '0'
+
+# Настройки для yt-dlp с SSL фиксом
 YDL_OPTIONS = {
     'format': 'bestaudio/best',
     'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
     'restrictfilenames': True,
     'noplaylist': False,
-    'nocheckcertificate': True,  # Важно: отключаем проверку сертификата
+    'nocheckcertificate': True,  # КРИТИЧЕСКИ ВАЖНО
     'ignoreerrors': False,
     'logtostderr': False,
     'quiet': True,
@@ -19,9 +24,10 @@ YDL_OPTIONS = {
     'default_search': 'auto',
     'source_address': '0.0.0.0',
     'extract_flat': False,
+    'ssl_verify': False,  # Явно отключаем SSL проверку
     'geo_bypass': True,
     'geo_bypass_country': 'US',
-    'ssl_verify': False,  # Отключаем SSL verification
+    'socket_timeout': 30,
 }
 
 FFMPEG_OPTIONS = {
@@ -33,4 +39,4 @@ FFMPEG_OPTIONS = {
 PLAYLISTS_DIR = "data/playlists"
 os.makedirs(PLAYLISTS_DIR, exist_ok=True)
 
-print("✅ Конфигурация загружена")
+print("✅ Конфигурация загружена с SSL фиксом")

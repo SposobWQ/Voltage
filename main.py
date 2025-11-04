@@ -2,7 +2,12 @@ import discord
 from discord.ext import commands
 import os
 import asyncio
+import ssl
 from config import BOT_TOKEN
+
+# ГЛОБАЛЬНЫЙ SSL ФИКС В НАЧАЛЕ ФАЙЛА
+ssl._create_default_https_context = ssl._create_unverified_context
+os.environ['PYTHONHTTPSVERIFY'] = '0'
 
 class MusicBot(commands.Bot):
     def __init__(self):
@@ -11,11 +16,13 @@ class MusicBot(commands.Bot):
         super().__init__(command_prefix='!', intents=intents)
 
     async def setup_hook(self):
-        # Загружаем коги
-        await self.load_extension('cogs.music')
-        await self.load_extension('cogs.playlist')
+        try:
+            await self.load_extension('cogs.music')
+            await self.load_extension('cogs.playlist')
+            print("✅ Коги загружены")
+        except Exception as e:
+            print(f"❌ Ошибка загрузки когов: {e}")
         
-        # Синхронизируем слэш-команды
         try:
             synced = await self.tree.sync()
             print(f"✅ Синхронизировано {len(synced)} команд")
@@ -24,6 +31,7 @@ class MusicBot(commands.Bot):
 
     async def on_ready(self):
         print(f'✅ Бот {self.user} запущен!')
+        print('🔒 SSL фикс активирован')
         activity = discord.Activity(type=discord.ActivityType.listening, name="/play")
         await self.change_presence(activity=activity)
 
@@ -32,8 +40,15 @@ async def main():
         print("❌ BOT_TOKEN не найден!")
         return
     
+    print("🚀 Запуск бота с SSL фиксом...")
     bot = MusicBot()
-    await bot.start(BOT_TOKEN)
+    
+    try:
+        await bot.start(BOT_TOKEN)
+    except KeyboardInterrupt:
+        print("🛑 Бот остановлен")
+    except Exception as e:
+        print(f"❌ Ошибка: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())
