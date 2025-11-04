@@ -36,21 +36,37 @@ YDL_OPTIONS = {
     'geo_bypass': True,
     'geo_bypass_country': 'US',
     'socket_timeout': 30,
-    'buffersize': 2048,  # Увеличиваем буфер для стабильности
+    'buffersize': 2048,
     'http_chunk_size': 10485760,
 }
 
-# УЛУЧШЕННЫЕ НАСТРОЙКИ ДЛЯ КАЧЕСТВЕННОГО ЗВУКА
+# Улучшенные настройки звука
 FFMPEG_OPTIONS = {
-    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -analyzeduration 0 -probesize 32M',
-    'options': '-vn -af "volume=1.2, equalizer=f=1000:width_type=h:width=1000:g=3, equalizer=f=5000:width_type=h:width=3000:g=2, aresample=48000" -bufsize 1024k -ac 2 -ar 48000'
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+    'options': '-vn -af "volume=1.0" -bufsize 512k -ac 2 -ar 48000'
 }
 
-PLAYLISTS_DIR = "/app/data/playlists"
+# ПУТИ ДЛЯ СОХРАНЕНИЯ ДАННЫХ
+# На Railway используем /tmp для persistence или внешнее хранилище
+IS_RAILWAY = os.getenv('RAILWAY_ENVIRONMENT') is not None
+
+if IS_RAILWAY:
+    # На Railway используем том для постоянного хранения
+    PLAYLISTS_DIR = "/app/data/playlists"
+    # Альтернативно можно использовать /tmp если том не настроен
+    if not os.path.exists('/app/data'):
+        PLAYLISTS_DIR = "/tmp/music_bot/playlists"
+else:
+    # Локальная разработка
+    PLAYLISTS_DIR = "data/playlists"
+
+# Создаем директорию если не существует
 os.makedirs(PLAYLISTS_DIR, exist_ok=True)
 
 # Настройки прав
 ADMIN_ROLE_NAMES = ['Admin', 'Administrator', 'Модератор', 'Moderator']
 BOT_OWNER_ID = int(os.getenv('BOT_OWNER_ID', '0'))
 
-print("✅ Конфигурация загружена с улучшенными настройками звука")
+print(f"✅ Конфигурация загружена")
+print(f"📁 Директория плейлистов: {PLAYLISTS_DIR}")
+print(f"🚄 Режим Railway: {IS_RAILWAY}")
