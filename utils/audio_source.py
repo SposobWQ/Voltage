@@ -1,9 +1,9 @@
 import discord
 import yt_dlp
 import asyncio
-from config import YDL_OPTIONS, FFMPEG_OPTIONS
-
-ytdl = yt_dlp.YoutubeDL(YDL_OPTIONS)
+import subprocess
+import os
+from config import YDL_OPTIONS, FFMPEG_OPTIONS, IS_RAILWAY
 
 class YTDLSource(discord.PCMVolumeTransformer):
     def __init__(self, source, *, data, volume=0.5):
@@ -23,7 +23,14 @@ class YTDLSource(discord.PCMVolumeTransformer):
             data = data['entries'][0]
         
         filename = data['url'] if stream else ytdl.prepare_filename(data)
-        return cls(discord.FFmpegPCMAudio(filename, **FFMPEG_OPTIONS), data=data)
+        
+        # На Railway используем системный ffmpeg
+        if IS_RAILWAY:
+            # Просто используем FFmpegPCMAudio, так как ffmpeg уже в PATH
+            return cls(discord.FFmpegPCMAudio(filename, **FFMPEG_OPTIONS), data=data)
+        else:
+            # Локальная разработка
+            return cls(discord.FFmpegPCMAudio(filename, **FFMPEG_OPTIONS), data=data)
 
     @classmethod
     async def search_songs(cls, query, limit=10):
@@ -46,3 +53,6 @@ class YTDLSource(discord.PCMVolumeTransformer):
             return ytdl.extract_info(url, download=False, process=False)
         
         return await loop.run_in_executor(None, extract)
+
+# Инициализация yt-dlp после определения настроек
+ytdl = yt_dlp.YoutubeDL(YDL_OPTIONS)

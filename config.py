@@ -6,6 +6,9 @@ load_dotenv()
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 PREFIX = '!'
 
+# Настройки для Railway
+IS_RAILWAY = os.getenv('RAILWAY_ENVIRONMENT') is not None
+
 # Настройки для yt-dlp
 YDL_OPTIONS = {
     'format': 'bestaudio/best',
@@ -22,10 +25,19 @@ YDL_OPTIONS = {
     'extract_flat': False
 }
 
-FFMPEG_OPTIONS = {
-    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-    'options': '-vn'
-}
+# FFmpeg настройки для Railway
+if IS_RAILWAY:
+    # На Railway FFmpeg уже установлен в системе
+    FFMPEG_OPTIONS = {
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+        'options': '-vn'
+    }
+else:
+    # Локальная разработка
+    FFMPEG_OPTIONS = {
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+        'options': '-vn'
+    }
 
 # Пути
 PLAYLISTS_DIR = "data/playlists"
