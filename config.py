@@ -5,9 +5,6 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 
-# Проверяем, запущены ли на Railway
-IS_RAILWAY = os.getenv('RAILWAY_ENVIRONMENT') is not None
-
 # Настройки для yt-dlp
 YDL_OPTIONS = {
     'format': 'bestaudio/best',
@@ -32,4 +29,4 @@ FFMPEG_OPTIONS = {
 PLAYLISTS_DIR = "data/playlists"
 os.makedirs(PLAYLISTS_DIR, exist_ok=True)
 
-print(f"🚄 Режим: {'Railway' if IS_RAILWAY else 'Локальный'}")
+print("✅ Конфигурация загружена")
