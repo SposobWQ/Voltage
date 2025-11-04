@@ -1,22 +1,30 @@
 import os
 import ssl
+import subprocess
 from dotenv import load_dotenv
 
 load_dotenv()
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 
-# ФИКС SSL ОШИБКИ - добавляем в самое начало
+# Проверяем FFmpeg при запуске
+try:
+    subprocess.run(['ffmpeg', '-version'], capture_output=True, check=True)
+    print("✅ FFmpeg доступен")
+except (subprocess.CalledProcessError, FileNotFoundError):
+    print("❌ FFmpeg не найден! Установите ffmpeg в Dockerfile")
+
+# SSL фикс
 ssl._create_default_https_context = ssl._create_unverified_context
 os.environ['PYTHONHTTPSVERIFY'] = '0'
 
-# Настройки для yt-dlp с SSL фиксом
+# Настройки для yt-dlp
 YDL_OPTIONS = {
     'format': 'bestaudio/best',
     'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
     'restrictfilenames': True,
     'noplaylist': False,
-    'nocheckcertificate': True,  # КРИТИЧЕСКИ ВАЖНО
+    'nocheckcertificate': True,
     'ignoreerrors': False,
     'logtostderr': False,
     'quiet': True,
@@ -24,7 +32,7 @@ YDL_OPTIONS = {
     'default_search': 'auto',
     'source_address': '0.0.0.0',
     'extract_flat': False,
-    'ssl_verify': False,  # Явно отключаем SSL проверку
+    'ssl_verify': False,
     'geo_bypass': True,
     'geo_bypass_country': 'US',
     'socket_timeout': 30,
@@ -35,8 +43,7 @@ FFMPEG_OPTIONS = {
     'options': '-vn'
 }
 
-# Пути
-PLAYLISTS_DIR = "data/playlists"
+PLAYLISTS_DIR = "/app/data/playlists"
 os.makedirs(PLAYLISTS_DIR, exist_ok=True)
 
-print("✅ Конфигурация загружена с SSL фиксом")
+print("✅ Конфигурация загружена")
