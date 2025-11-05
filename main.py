@@ -3,6 +3,7 @@ from discord.ext import commands
 import os
 import asyncio
 import ssl
+import subprocess
 from config import BOT_TOKEN
 
 # SSL фикс
@@ -16,12 +17,27 @@ class MusicBot(commands.Bot):
         super().__init__(command_prefix='!', intents=intents)
 
     async def setup_hook(self):
-        # Создаем пустой файл cookies если его нет
-        if not os.path.exists('youtube_cookies.json'):
-            print("⚠️ Файл cookies не найден, создаем пустой...")
-            with open('youtube_cookies.json', 'w') as f:
-                f.write('[]')
-        
+        # Проверяем FFmpeg
+        try:
+            result = subprocess.run(['ffmpeg', '-version'], capture_output=True, text=True)
+            if result.returncode == 0:
+                print("✅ FFmpeg доступен")
+            else:
+                print("❌ FFmpeg не работает")
+        except:
+            print("❌ FFmpeg не установлен")
+
+        # Проверяем Railway storage
+        if os.getenv('RAILWAY_ENVIRONMENT'):
+            test_path = "/app/data/test.txt"
+            try:
+                with open(test_path, 'w') as f:
+                    f.write("test")
+                os.remove(test_path)
+                print("✅ Railway volume доступен для записи")
+            except Exception as e:
+                print(f"❌ Railway volume недоступен: {e}")
+
         try:
             await self.load_extension('cogs.music')
             await self.load_extension('cogs.playlist')
@@ -38,46 +54,25 @@ class MusicBot(commands.Bot):
     async def on_ready(self):
         print(f'✅ Бот {self.user} запущен!')
         print(f'📊 ID бота: {self.user.id}')
+        print('🔒 SSL фикс активирован')
         
-        # Показываем информацию о среде
-        if os.getenv('RAILWAY_ENVIRONMENT'):
-            print('🚄 Запущено на Railway')
-        else:
-            print('💻 Локальный запуск')
-        
-        # Проверяем cookies
-        try:
-            import json
-            with open('youtube_cookies.json', 'r') as f:
-                cookies = json.load(f)
-            if len(cookies) > 0:
-                print(f"🔑 Загружено {len(cookies)} cookies для обхода ограничений")
-            else:
-                print("⚠️ Файл cookies пуст - возрастные ограничения не будут обходиться")
-        except:
-            print("❌ Ошибка загрузки cookies")
-        
-        activity = discord.Activity(type=discord.ActivityType.listening, name="/play | Railway")
+        activity = discord.Activity(type=discord.ActivityType.listening, name="/play | Fixed")
         await self.change_presence(activity=activity)
 
 async def main():
     if not BOT_TOKEN:
         print("❌ BOT_TOKEN не найден!")
-        print("💡 Убедитесь, что переменная установлена в Railway Dashboard")
         return
     
-    print("🚀 Запуск бота на Railway...")
-    
+    print("🚀 Запуск бота...")
     bot = MusicBot()
     
     try:
         await bot.start(BOT_TOKEN)
     except KeyboardInterrupt:
         print("🛑 Бот остановлен")
-    except discord.PrivilegedIntentsRequired:
-        print("❌ Ошибка: Privileged Intents не включены в Discord Developer Portal")
     except Exception as e:
-        print(f"❌ Критическая ошибка: {e}")
+        print(f"❌ Ошибка: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())
