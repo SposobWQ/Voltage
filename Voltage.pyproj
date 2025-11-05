@@ -22,8 +22,8 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="check_ffmpeg.py" />
     <Compile Include="cogs\playlist.py" />
-    <Compile Include="test_ssl_fix.py" />
     <Compile Include="utils\audio_source.py" />
     <Compile Include="cogs\music.py" />
     <Compile Include="utils\pagination.py" />
@@ -34,6 +34,8 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include=".env" />
+    <Content Include="Dockerfile" />
+    <Content Include="railway.toml" />
     <Content Include="requirements.txt" />
     <Content Include="runtime.txt" />
   </ItemGroup>

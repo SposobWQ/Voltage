@@ -18,7 +18,7 @@ except (subprocess.CalledProcessError, FileNotFoundError):
 ssl._create_default_https_context = ssl._create_unverified_context
 os.environ['PYTHONHTTPSVERIFY'] = '0'
 
-# Настройки для yt-dlp
+# ОБНОВЛЕННЫЕ НАСТРОЙКИ ДЛЯ ОБХОДА ВОЗРАСТНЫХ ОГРАНИЧЕНИЙ
 YDL_OPTIONS = {
     'format': 'bestaudio[ext=webm]/bestaudio/best',
     'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
@@ -38,9 +38,25 @@ YDL_OPTIONS = {
     'socket_timeout': 30,
     'buffersize': 2048,
     'http_chunk_size': 10485760,
+    # НАСТРОЙКИ ДЛЯ ОБХОДА ВОЗРАСТНЫХ ОГРАНИЧЕНИЙ
+    'age_limit': 100,  # Игнорируем возрастные ограничения
+    'extractor_args': {
+        'youtube': {
+            'player_client': ['android', 'web'],  # Используем мобильные клиенты
+            'player_skip': ['configs', 'webpage', 'js'],  # Пропускаем проверки
+        }
+    },
+    'http_headers': {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-us,en;q=0.5',
+        'Accept-Encoding': 'gzip, deflate',
+        'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.7',
+        'Connection': 'keep-alive',
+    }
 }
 
-# Улучшенные настройки звука - ВЫСОКОЕ КАЧЕСТВО по умолчанию
+# Улучшенные настройки звука
 FFMPEG_OPTIONS = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -analyzeduration 0 -probesize 32M',
     'options': '-vn -af "volume=1.0" -bufsize 1024k -ac 2 -ar 48000 -b:a 192k'
@@ -89,7 +105,6 @@ PLAYLISTS_DIR = get_playlists_dir()
 ADMIN_ROLE_NAMES = ['Admin', 'Administrator', 'Модератор', 'Moderator']
 BOT_OWNER_ID = int(os.getenv('BOT_OWNER_ID', '0'))
 
-print(f"✅ Конфигурация загружена")
+print(f"✅ Конфигурация загружена с фиксом возрастных ограничений")
 print(f"📁 Директория плейлистов: {PLAYLISTS_DIR}")
 print(f"🚄 Режим Railway: {IS_RAILWAY}")
-print(f"🎵 Качество по умолчанию: high")
