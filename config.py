@@ -1,6 +1,5 @@
 import os
 import ssl
-import json
 import random
 from dotenv import load_dotenv
 
@@ -14,30 +13,35 @@ os.environ['PYTHONHTTPSVERIFY'] = '0'
 
 # Проверяем куки файл
 COOKIES_LOADED = False
-COOKIES_PATH = "youtube_cookies.json"
+COOKIES_PATH = "youtube_cookies.txt"
 
 def check_cookies_file():
-    """Проверяем и загружаем куки файл"""
+    """Проверяем куки файл в формате Netscape"""
     global COOKIES_LOADED
     try:
         if os.path.exists(COOKIES_PATH):
-            with open(COOKIES_PATH, 'r') as f:
-                cookies = json.load(f)
+            with open(COOKIES_PATH, 'r', encoding='utf-8') as f:
+                content = f.read()
             
-            if isinstance(cookies, list) and len(cookies) > 0:
+            # Проверяем что это Netscape формат
+            if '# Netscape HTTP Cookie File' in content:
+                # Считаем количество куки (не комментарные строки)
+                lines = content.split('\n')
+                cookie_count = sum(1 for line in lines if line and not line.startswith('#'))
+                
                 # Проверяем есть ли важные куки
                 important_cookies = ['__Secure-3PSID', '__Secure-3PAPISID', 'LOGIN_INFO']
-                found_important = any(any(cookie.get('name') == important for cookie in cookies) for important in important_cookies)
+                found_important = any(any(important in line for line in lines) for important in important_cookies)
                 
                 if found_important:
-                    print(f"✅ Загружено {len(cookies)} куки, важные куки найдены")
+                    print(f"✅ Загружено {cookie_count} куки в Netscape формате")
                     COOKIES_LOADED = True
                     return COOKIES_PATH
                 else:
                     print("⚠️ Куки файл есть, но важные куки не найдены")
                     return None
             else:
-                print("⚠️ Куки файл пустой или неверного формата")
+                print("⚠️ Файл куки не в Netscape формате")
                 return None
         else:
             print("❌ Файл куки не найден. Возрастные ограничения не будут обходиться.")
@@ -48,16 +52,14 @@ def check_cookies_file():
 
 COOKIES_FILE = check_cookies_file()
 
-# Случайный User-Agent чтобы избежать блокировки
+# Случайный User-Agent
 USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0'
 ]
 
-# НАСТРОЙКИ YT-DLP с защитой от блокировки
+# НАСТРОЙКИ YT-DLP
 YDL_OPTIONS = {
     'format': 'bestaudio/best',
     'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
@@ -75,7 +77,7 @@ YDL_OPTIONS = {
     'geo_bypass': True,
     'socket_timeout': 30,
     'buffersize': 2048,
-    'sleep_interval': 1,  # Задержка между запросами
+    'sleep_interval': 1,
     'max_sleep_interval': 2,
     'http_headers': {
         'User-Agent': random.choice(USER_AGENTS),
@@ -93,8 +95,8 @@ if COOKIES_FILE and COOKIES_LOADED:
     print("🎯 Куки активированы - возрастные ограничения будут обходиться")
 
 FFMPEG_OPTIONS = {
-    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -probesize 32 -analyzeduration 0',
-    'options': '-vn -af "volume=0.5" -bufsize 1024k'
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+    'options': '-vn -af "volume=0.5"'
 }
 
 # Настройки путей
