@@ -40,28 +40,38 @@ YDL_OPTIONS = {
     'http_chunk_size': 10485760,
 }
 
-# Улучшенные настройки звука
+# Улучшенные настройки звука - ВЫСОКОЕ КАЧЕСТВО по умолчанию
 FFMPEG_OPTIONS = {
-    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-    'options': '-vn -af "volume=1.0" -bufsize 512k -ac 2 -ar 48000'
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -analyzeduration 0 -probesize 32M',
+    'options': '-vn -af "volume=1.0" -bufsize 1024k -ac 2 -ar 48000 -b:a 192k'
 }
 
-# АВТОМАТИЧЕСКОЕ ОПРЕДЕЛЕНИЕ ПУТЕЙ ДЛЯ RAILWAY
+# Настройки качества для разных пресетов
+QUALITY_PRESETS = {
+    'low': {
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+        'options': '-vn -bufsize 256k -b:a 64k'
+    },
+    'medium': {
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+        'options': '-vn -bufsize 512k -b:a 128k'
+    },
+    'high': {
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -analyzeduration 0 -probesize 32M',
+        'options': '-vn -af "volume=1.0" -bufsize 1024k -ac 2 -ar 48000 -b:a 192k'
+    }
+}
+
+# Автоматическое определение путей
 IS_RAILWAY = os.getenv('RAILWAY_ENVIRONMENT') is not None
 
 def get_playlists_dir():
-    """Автоматически определяем лучшую директорию для хранения"""
-    # Проверяем доступность тома Railway
     railway_volume_path = "/app/data/playlists"
-    
-    # Проверяем доступность /tmp (всегда доступен)
     tmp_path = "/tmp/music_bot/playlists"
     
-    # Создаем обе директории на всякий случай
     os.makedirs(railway_volume_path, exist_ok=True)
     os.makedirs(tmp_path, exist_ok=True)
     
-    # Проверяем возможность записи в Railway volume
     try:
         test_file = os.path.join(railway_volume_path, "test_write.txt")
         with open(test_file, 'w') as f:
@@ -82,3 +92,4 @@ BOT_OWNER_ID = int(os.getenv('BOT_OWNER_ID', '0'))
 print(f"✅ Конфигурация загружена")
 print(f"📁 Директория плейлистов: {PLAYLISTS_DIR}")
 print(f"🚄 Режим Railway: {IS_RAILWAY}")
+print(f"🎵 Качество по умолчанию: high")

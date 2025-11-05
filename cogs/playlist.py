@@ -39,14 +39,12 @@ class Playlist(commands.Cog):
         }
         
         try:
-            # Проверяем возможность записи
             test_file = os.path.join(PLAYLISTS_DIR, "storage_test.txt")
             with open(test_file, 'w') as f:
                 f.write("test")
             os.remove(test_file)
             storage_info['writable'] = True
             
-            # Проверяем свободное место (только на Linux)
             if hasattr(os, 'statvfs'):
                 stat = os.statvfs(PLAYLISTS_DIR)
                 free_gb = (stat.f_bavail * stat.f_frsize) / (1024 ** 3)
@@ -86,7 +84,6 @@ class Playlist(commands.Cog):
                 
                 print(f"✅ Создана резервная копия {len(all_playlists)} плейлистов: {backup_file}")
                 
-                # Удаляем старые бэкапы (оставляем последние 3)
                 backups = sorted([f for f in os.listdir(self.backup_dir) if f.startswith('playlists_backup_')])
                 if len(backups) > 3:
                     for old_backup in backups[:-3]:
@@ -121,8 +118,6 @@ class Playlist(commands.Cog):
             with open(path, 'w', encoding='utf-8') as f:
                 json.dump(songs, f, ensure_ascii=False, indent=2)
             print(f"✅ Плейлист сохранен: {path}")
-            
-            # Создаем бэкап после значимых изменений
             self.create_backup()
             return True
         except Exception as e:
@@ -141,7 +136,6 @@ class Playlist(commands.Cog):
         return playlists
 
     def get_all_playlists_info(self):
-        """Получить информацию о всех плейлистах"""
         playlists_info = {}
         try:
             for filename in os.listdir(PLAYLISTS_DIR):
@@ -165,10 +159,11 @@ class Playlist(commands.Cog):
         
         return playlists_info
 
-    # ОБЩИЕ КОМАНДЫ (остаются без изменений)
+    # ОБЩИЕ КОМАНДЫ ДЛЯ ВСЕХ
     @app_commands.command(name="playlist_create", description="Создать новый плейлист")
     @app_commands.describe(name="Название плейлиста")
     async def playlist_create(self, interaction: discord.Interaction, name: str):
+        """Создание плейлиста - для всех"""
         if self.load_playlist(interaction.user.id, name):
             await interaction.response.send_message(f"❌ Плейлист с названием `{name}` уже существует!")
             return
@@ -178,13 +173,253 @@ class Playlist(commands.Cog):
         else:
             await interaction.response.send_message("❌ Ошибка при создании плейлиста!")
 
-    # ... остальные команды без изменений ...
+    @app_commands.command(name="playlist_add", description="Добавить песню в плейлист")
+    @app_commands.describe(playlist_name="Название плейлиста", query="Название песни или ссылка")
+    async def playlist_add(self, interaction: discord.Interaction, playlist_name: str, query: str):
+        """Добавление песни в плейлист - для всех"""
+        playlist = self.load_playlist(interaction.user.id, playlist_name)
+        if playlist is None:
+            await interaction.response.send_message(f"❌ Плейлист `{playlist_name}` не найден!")
+            return
+        
+        await interaction.response.defer()
+        
+        if query.startswith(('http', 'www.')):
+            try:
+                data = await YTDLSource.get_playlist_info(query)
+                if 'entries' in data:
+                    songs = data['entries']
+                else:
+                    songs = [data]
+            except Exception as e:
+                await interaction.followup.send(f"❌ Ошибка при получении информации: {str(e)}")
+                return
+        else:
+            songs = await YTDLSource.search_songs(query, limit=1)
+        
+        if not songs:
+            await interaction.followup.send("❌ Песня не найдена!")
+            return
+        
+        song = songs[0]
+        song_info = {
+            'id': song.get('id'),
+            'title': song.get('title'),
+            'url': f"https://www.youtube.com/watch?v={song.get('id')}",
+            'duration': song.get('duration'),
+            'thumbnail': song.get('thumbnail'),
+            'added_at': datetime.now().isoformat(),
+            'added_by': interaction.user.id
+        }
+        
+        playlist.append(song_info)
+        if self.save_playlist(interaction.user.id, playlist_name, playlist):
+            embed = discord.Embed(
+                title="✅ Песня добавлена в плейлист",
+                description=f"[{song_info['title']}]({song_info['url']})",
+                color=discord.Color.green()
+            )
+            embed.add_field(name="Плейлист", value=playlist_name)
+            embed.add_field(name="Всего песен", value=len(playlist))
+            await interaction.followup.send(embed=embed)
+        else:
+            await interaction.followup.send("❌ Ошибка при сохранении плейлиста!")
 
-    # НОВЫЕ КОМАНДЫ ДЛЯ МОНИТОРИНГА ХРАНИЛИЩА
+    @app_commands.command(name="playlist_play", description="Воспроизвести плейлист")
+    @app_commands.describe(playlist_name="Название плейлиста")
+    async def playlist_play(self, interaction: discord.Interaction, playlist_name: str):
+        """Воспроизведение плейлиста - для всех"""
+        playlist = self.load_playlist(interaction.user.id, playlist_name)
+        if not playlist:
+            await interaction.response.send_message(f"❌ Плейлист `{playlist_name}` не найден или пуст!")
+            return
+        
+        if not interaction.user.voice:
+            await interaction.response.send_message("❌ Вы должны быть в голосовом канале!", ephemeral=True)
+            return
+        
+        music_cog = self.bot.get_cog('Music')
+        if not music_cog:
+            await interaction.response.send_message("❌ Модуль музыки не загружен!")
+            return
+        
+        await interaction.response.defer()
+        
+        voice_channel = interaction.user.voice.channel
+        guild_id = interaction.guild.id
+        
+        if guild_id in music_cog.voice_clients:
+            voice_client = music_cog.voice_clients[guild_id]
+            if voice_client.channel != voice_channel:
+                await voice_client.move_to(voice_channel)
+        else:
+            voice_client = await voice_channel.connect()
+            music_cog.voice_clients[guild_id] = voice_client
+        
+        queue = music_cog.get_queue(guild_id)
+        added_count = 0
+        
+        for song_info in playlist:
+            try:
+                player = await YTDLSource.from_url(song_info['url'], loop=self.bot.loop, stream=True)
+                queue.append(player)
+                added_count += 1
+            except Exception as e:
+                print(f"Ошибка при добавлении песни {song_info['title']}: {e}")
+                continue
+        
+        if not voice_client.is_playing() and queue:
+            music_cog.play_next(guild_id)
+        
+        embed = discord.Embed(
+            title="🎵 Плейлист добавлен в очередь",
+            description=f"Плейлист: **{playlist_name}**",
+            color=discord.Color.blue()
+        )
+        embed.add_field(name="Добавлено песен", value=added_count)
+        embed.add_field(name="Всего в очереди", value=len(queue))
+        
+        await interaction.followup.send(embed=embed)
+
+    @app_commands.command(name="playlist_list", description="Показать мои плейлисты")
+    async def playlist_list(self, interaction: discord.Interaction):
+        """Список плейлистов - для всех"""
+        playlists = self.get_user_playlists(interaction.user.id)
+        
+        if not playlists:
+            await interaction.response.send_message("📭 У вас нет плейлистов!")
+            return
+        
+        embed = discord.Embed(title="📋 Ваши плейлисты", color=discord.Color.purple())
+        
+        for playlist_name in playlists:
+            playlist = self.load_playlist(interaction.user.id, playlist_name)
+            song_count = len(playlist) if playlist else 0
+            embed.add_field(
+                name=playlist_name,
+                value=f"Песен: {song_count}",
+                inline=True
+            )
+        
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="playlist_show", description="Показать содержимое плейлиста")
+    @app_commands.describe(playlist_name="Название плейлиста")
+    async def playlist_show(self, interaction: discord.Interaction, playlist_name: str):
+        """Показать плейлист - для всех"""
+        playlist = self.load_playlist(interaction.user.id, playlist_name)
+        
+        if not playlist:
+            await interaction.response.send_message(f"❌ Плейлист `{playlist_name}` не найден!")
+            return
+        
+        if not playlist:
+            await interaction.response.send_message(f"📭 Плейлист `{playlist_name}` пуст!")
+            return
+        
+        embed = discord.Embed(
+            title=f"📋 Плейлист: {playlist_name}",
+            description=f"Всего песен: {len(playlist)}",
+            color=discord.Color.blue()
+        )
+        
+        for i, song in enumerate(playlist[:10], 1):
+            duration = self.format_duration(song.get('duration'))
+            embed.add_field(
+                name=f"{i}. {song['title']}",
+                value=f"⏱️ {duration}",
+                inline=False
+            )
+        
+        if len(playlist) > 10:
+            embed.set_footer(text=f"И еще {len(playlist) - 10} песен...")
+        
+        await interaction.response.send_message(embed=embed)
+
+    @app_commands.command(name="playlist_remove", description="Удалить песню из плейлиста")
+    @app_commands.describe(playlist_name="Название плейлиста", song_number="Номер песни в плейлисте")
+    async def playlist_remove(self, interaction: discord.Interaction, playlist_name: str, song_number: int):
+        """Удаление песни из плейлиста - для всех"""
+        playlist = self.load_playlist(interaction.user.id, playlist_name)
+        
+        if not playlist:
+            await interaction.response.send_message(f"❌ Плейлист `{playlist_name}` не найден!")
+            return
+        
+        if song_number < 1 or song_number > len(playlist):
+            await interaction.response.send_message(f"❌ Неверный номер песни! Должен быть от 1 до {len(playlist)}")
+            return
+        
+        removed_song = playlist.pop(song_number - 1)
+        self.save_playlist(interaction.user.id, playlist_name, playlist)
+        
+        embed = discord.Embed(
+            title="✅ Песня удалена из плейлиста",
+            description=f"[{removed_song['title']}]({removed_song['url']})",
+            color=discord.Color.green()
+        )
+        embed.add_field(name="Плейлист", value=playlist_name)
+        embed.add_field(name="Осталось песен", value=len(playlist))
+        
+        await interaction.response.send_message(embed=embed)
+
+    # АДМИН КОМАНДЫ
+    @app_commands.command(name="playlist_admin_remove", description="Удалить плейлист пользователя (только для админов)")
+    @app_commands.describe(user_id="ID пользователя", playlist_name="Название плейлиста")
+    @is_admin()
+    async def playlist_admin_remove(self, interaction: discord.Interaction, user_id: str, playlist_name: str):
+        try:
+            user_id_int = int(user_id)
+            path = self.get_playlist_path(user_id_int, playlist_name)
+            
+            if not os.path.exists(path):
+                await interaction.response.send_message(f"❌ Плейлист `{playlist_name}` не найден у пользователя {user_id}!")
+                return
+            
+            os.remove(path)
+            await interaction.response.send_message(f"✅ Плейлист `{playlist_name}` пользователя {user_id} удален!")
+        except ValueError:
+            await interaction.response.send_message("❌ Неверный ID пользователя!")
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Ошибка: {str(e)}")
+
+    @app_commands.command(name="playlist_admin_list", description="Показать плейлисты пользователя (только для админов)")
+    @app_commands.describe(user_id="ID пользователя")
+    @is_admin()
+    async def playlist_admin_list(self, interaction: discord.Interaction, user_id: str):
+        try:
+            user_id_int = int(user_id)
+            playlists = []
+            
+            for filename in os.listdir(PLAYLISTS_DIR):
+                if filename.startswith(f"{user_id_int}_"):
+                    playlist_name = filename.replace(f"{user_id_int}_", "").replace(".json", "")
+                    playlists.append(playlist_name)
+            
+            if not playlists:
+                await interaction.response.send_message(f"📭 У пользователя {user_id} нет плейлистов!")
+                return
+            
+            embed = discord.Embed(title=f"📋 Плейлисты пользователя {user_id}", color=discord.Color.purple())
+            
+            for playlist_name in playlists:
+                playlist = self.load_playlist(user_id_int, playlist_name)
+                song_count = len(playlist) if playlist else 0
+                embed.add_field(
+                    name=playlist_name,
+                    value=f"Песен: {song_count}",
+                    inline=True
+                )
+            
+            await interaction.response.send_message(embed=embed)
+        except ValueError:
+            await interaction.response.send_message("❌ Неверный ID пользователя!")
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Ошибка: {str(e)}")
+
     @app_commands.command(name="storage_info", description="Информация о хранилище (только для админов)")
     @is_admin()
     async def storage_info(self, interaction: discord.Interaction):
-        """Информация о системе хранения"""
         embed = discord.Embed(
             title="💾 Информация о хранилище",
             color=discord.Color.blue()
@@ -195,7 +430,6 @@ class Playlist(commands.Cog):
         embed.add_field(name="Доступно для записи", value="✅ Да" if self.storage_info['writable'] else "❌ Нет")
         embed.add_field(name="Свободное место", value=self.storage_info['free_space'])
         
-        # Информация о плейлистах
         playlists_info = self.get_all_playlists_info()
         total_playlists = sum(len(user_playlists) for user_playlists in playlists_info.values())
         total_users = len(playlists_info)
@@ -203,7 +437,6 @@ class Playlist(commands.Cog):
         embed.add_field(name="Всего пользователей", value=total_users)
         embed.add_field(name="Всего плейлистов", value=total_playlists)
         
-        # Информация о бэкапах
         backups = sorted([f for f in os.listdir(self.backup_dir) if f.startswith('playlists_backup_')])
         embed.add_field(name="Резервных копий", value=len(backups))
         
@@ -212,6 +445,16 @@ class Playlist(commands.Cog):
             embed.add_field(name="Последний бэкап", value=latest_backup, inline=False)
         
         await interaction.response.send_message(embed=embed)
+
+    def format_duration(self, seconds):
+        if not seconds:
+            return "Неизвестно"
+        minutes, seconds = divmod(seconds, 60)
+        hours, minutes = divmod(minutes, 60)
+        if hours > 0:
+            return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        else:
+            return f"{minutes:02d}:{seconds:02d}"
 
 async def setup(bot):
     await bot.add_cog(Playlist(bot))

@@ -3,7 +3,7 @@ import yt_dlp
 import asyncio
 import ssl
 import subprocess
-from config import YDL_OPTIONS, FFMPEG_OPTIONS
+from config import YDL_OPTIONS, FFMPEG_OPTIONS, QUALITY_PRESETS
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
@@ -17,7 +17,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         self.thumbnail = data.get('thumbnail')
 
     @classmethod
-    async def from_url(cls, url, *, loop=None, stream=False):
+    async def from_url(cls, url, *, loop=None, stream=False, quality='high'):
         loop = loop or asyncio.get_event_loop()
         try:
             data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
@@ -27,9 +27,12 @@ class YTDLSource(discord.PCMVolumeTransformer):
             
             filename = data['url'] if stream else ytdl.prepare_filename(data)
             
+            # Используем настройки качества
+            ffmpeg_options = QUALITY_PRESETS.get(quality, FFMPEG_OPTIONS)
+            
             audio_source = discord.FFmpegPCMAudio(
                 filename,
-                **FFMPEG_OPTIONS,
+                **ffmpeg_options,
                 stderr=subprocess.PIPE
             )
             
@@ -40,7 +43,6 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
     @classmethod
     async def search_songs(cls, query, limit=10):
-        """Поиск песен"""
         loop = asyncio.get_event_loop()
         search_query = f"ytsearch{limit}:{query}"
         
@@ -56,7 +58,6 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
     @classmethod
     async def get_playlist_info(cls, url):
-        """Получение информации о плейлисте"""
         loop = asyncio.get_event_loop()
         
         def extract():
