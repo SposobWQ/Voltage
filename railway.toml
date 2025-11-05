@@ -2,20 +2,4 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "python main.py"
-healthcheckPath = "/"
-healthcheckTimeout = 300
-
-[[services]]
-name = "discord-bot"
-  
-[services.env]
-BOT_TOKEN = "{{.Secrets.BOT_TOKEN}}"
-BOT_OWNER_ID = "{{.Secrets.BOT_OWNER_ID}}"
-PYTHONUNBUFFERED = "1"
-PYTHONHASHSEED = "0"
-
-# Persistent storage для данных
-[[mounts]]
-name = "music-bot-data"
-mountPath = "/app/data"
+startCommand = "python restart_bot.py"

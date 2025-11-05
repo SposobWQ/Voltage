@@ -2,6 +2,8 @@ import discord
 import yt_dlp
 import asyncio
 import subprocess
+import time
+import random
 from config import YDL_OPTIONS, FFMPEG_OPTIONS
 
 class YTDLSource(discord.PCMVolumeTransformer):
@@ -16,6 +18,10 @@ class YTDLSource(discord.PCMVolumeTransformer):
     @classmethod
     async def from_url(cls, url, *, loop=None, stream=False):
         loop = loop or asyncio.get_event_loop()
+        
+        # Случайная задержка чтобы избежать блокировки
+        await asyncio.sleep(random.uniform(0.5, 2.0))
+        
         try:
             data = await loop.run_in_executor(None, lambda: ytdl.extract_info(url, download=not stream))
             
@@ -42,8 +48,12 @@ class YTDLSource(discord.PCMVolumeTransformer):
             error_msg = str(e)
             print(f"❌ Ошибка загрузки {url}: {error_msg}")
             
+            # Если блокировка Cloudflare
+            if '429' in error_msg or 'rate limit' in error_msg.lower() or 'cloudflare' in error_msg.lower():
+                raise Exception("🚫 Слишком много запросов. Подожди 1-2 минуты.")
+            
             # Если возрастное ограничение
-            if any(x in error_msg for x in ['age-restricted', 'Sign in to confirm', 'inappropriate']):
+            elif any(x in error_msg for x in ['age-restricted', 'Sign in to confirm', 'inappropriate']):
                 if YDL_OPTIONS.get('cookiefile'):
                     raise Exception("❌ Возрастное ограничение. Куки не работают.")
                 else:
@@ -57,6 +67,9 @@ class YTDLSource(discord.PCMVolumeTransformer):
         loop = asyncio.get_event_loop()
         search_query = f"ytsearch{limit}:{query}"
         
+        # Случайная задержка
+        await asyncio.sleep(random.uniform(0.5, 1.5))
+        
         def extract():
             try:
                 return ytdl.extract_info(search_query, download=False)
@@ -64,8 +77,13 @@ class YTDLSource(discord.PCMVolumeTransformer):
                 error_msg = str(e)
                 print(f"❌ Ошибка поиска '{query}': {error_msg}")
                 
+                # Если блокировка Cloudflare
+                if '429' in error_msg or 'rate limit' in error_msg.lower():
+                    print("🚫 Блокировка Cloudflare - ждем...")
+                    return {'entries': []}
+                
                 # Если возрастное ограничение при поиске
-                if any(x in error_msg for x in ['age-restricted', 'Sign in to confirm', 'inappropriate']):
+                elif any(x in error_msg for x in ['age-restricted', 'Sign in to confirm', 'inappropriate']):
                     print(f"⚠️ Возрастное ограничение при поиске '{query}'")
                     return {'entries': []}
                 else:
@@ -74,15 +92,16 @@ class YTDLSource(discord.PCMVolumeTransformer):
         data = await loop.run_in_executor(None, extract)
         return data.get('entries', []) if 'entries' in data else []
 
-# Инициализация yt-dlp
+# Инициализация yt-dlp с обработкой ошибок
 try:
     ytdl = yt_dlp.YoutubeDL(YDL_OPTIONS)
-    print("✅ yt-dlp инициализирован")
+    print("✅ yt-dlp инициализирован с защитой от блокировки")
 except Exception as e:
     print(f"❌ Ошибка инициализации yt-dlp: {e}")
-    # Резервная инициализация
+    # Резервная инициализация с минимальными настройками
     ytdl = yt_dlp.YoutubeDL({
         'format': 'bestaudio/best',
         'nocheckcertificate': True,
         'quiet': True,
+        'sleep_interval': 2,
     })

@@ -14,7 +14,13 @@ class MusicBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
         intents.message_content = True
-        super().__init__(command_prefix='!', intents=intents)
+        
+        # Настройки для избежания блокировки
+        super().__init__(
+            command_prefix='!', 
+            intents=intents,
+            reconnect=True
+        )
 
     async def setup_hook(self):
         # Проверяем FFmpeg
@@ -26,17 +32,6 @@ class MusicBot(commands.Bot):
                 print("❌ FFmpeg не работает")
         except:
             print("❌ FFmpeg не установлен")
-
-        # Проверяем Railway storage
-        if os.getenv('RAILWAY_ENVIRONMENT'):
-            test_path = "/app/data/test.txt"
-            try:
-                with open(test_path, 'w') as f:
-                    f.write("test")
-                os.remove(test_path)
-                print("✅ Railway volume доступен для записи")
-            except Exception as e:
-                print(f"❌ Railway volume недоступен: {e}")
 
         try:
             await self.load_extension('cogs.music')
@@ -54,25 +49,37 @@ class MusicBot(commands.Bot):
     async def on_ready(self):
         print(f'✅ Бот {self.user} запущен!')
         print(f'📊 ID бота: {self.user.id}')
-        print('🔒 SSL фикс активирован')
         
-        activity = discord.Activity(type=discord.ActivityType.listening, name="/play | Fixed")
+        activity = discord.Activity(type=discord.ActivityType.listening, name="/play | Stable")
         await self.change_presence(activity=activity)
+
+    async def on_error(self, event, *args, **kwargs):
+        print(f"❌ Ошибка в событии {event}: {args} {kwargs}")
 
 async def main():
     if not BOT_TOKEN:
         print("❌ BOT_TOKEN не найден!")
         return
     
-    print("🚀 Запуск бота...")
+    print("🚀 Запуск бота с защитой от блокировки...")
     bot = MusicBot()
     
     try:
         await bot.start(BOT_TOKEN)
     except KeyboardInterrupt:
-        print("🛑 Бот остановлен")
+        print("🛑 Бот остановлен вручную")
+    except discord.HTTPException as e:
+        if e.status == 429:
+            print("🚫 Слишком много запросов к Discord. Ждем 1 минуту...")
+            await asyncio.sleep(60)
+            await main()  # Перезапускаем
+        else:
+            print(f"❌ Ошибка Discord: {e}")
     except Exception as e:
-        print(f"❌ Ошибка: {e}")
+        print(f"❌ Критическая ошибка: {e}")
+        print("🔄 Перезапуск через 30 секунд...")
+        await asyncio.sleep(30)
+        await main()  # Перезапускаем
 
 if __name__ == "__main__":
     asyncio.run(main())

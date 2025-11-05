@@ -1,6 +1,7 @@
 import os
 import ssl
 import json
+import random
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -47,7 +48,16 @@ def check_cookies_file():
 
 COOKIES_FILE = check_cookies_file()
 
-# НАСТРОЙКИ YT-DLP
+# Случайный User-Agent чтобы избежать блокировки
+USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0'
+]
+
+# НАСТРОЙКИ YT-DLP с защитой от блокировки
 YDL_OPTIONS = {
     'format': 'bestaudio/best',
     'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
@@ -65,6 +75,16 @@ YDL_OPTIONS = {
     'geo_bypass': True,
     'socket_timeout': 30,
     'buffersize': 2048,
+    'sleep_interval': 1,  # Задержка между запросами
+    'max_sleep_interval': 2,
+    'http_headers': {
+        'User-Agent': random.choice(USER_AGENTS),
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-us,en;q=0.5',
+        'Accept-Encoding': 'gzip,deflate',
+        'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.7',
+        'Connection': 'keep-alive',
+    },
 }
 
 # Добавляем куки если они загружены
