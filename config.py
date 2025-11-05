@@ -41,7 +41,7 @@ YDL_OPTIONS = {
     'restrictfilenames': True,
     'noplaylist': False,
     'nocheckcertificate': True,
-    'ignoreerrors': True,  # Игнорируем ошибки для стабильности
+    'ignoreerrors': True,
     'logtostderr': False,
     'quiet': True,
     'no_warnings': True,
@@ -55,17 +55,12 @@ YDL_OPTIONS = {
     'extractor_args': {
         'youtube': {
             'player_client': ['android', 'ios', 'web'],
-            'player_skip': ['configs', 'webpage', 'js'],
         }
     },
     'http_headers': {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-us,en;q=0.5',
-        'Accept-Encoding': 'gzip,deflate',
-        'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.7',
     },
-    'age_limit': 100,  # Игнорируем возрастные ограничения
+    'age_limit': 100,
 }
 
 # Добавляем куки если они есть
@@ -76,22 +71,22 @@ if COOKIES_FILE:
 # НАСТРОЙКИ КАЧЕСТВА
 QUALITY_PRESETS = {
     'low': {
-        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -probesize 32 -analyzeduration 0',
-        'options': '-vn -af "volume=1.0" -bufsize 512k -ac 2 -ar 44100 -b:a 64k'
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+        'options': '-vn -af "volume=1.0" -bufsize 512k -ac 2 -ar 44100'
     },
     'medium': {
-        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -probesize 32 -analyzeduration 0', 
-        'options': '-vn -af "volume=1.0" -bufsize 1024k -ac 2 -ar 48000 -b:a 128k'
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 
+        'options': '-vn -af "volume=1.0" -bufsize 1024k -ac 2 -ar 48000'
     },
     'high': {
-        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -probesize 32 -analyzeduration 0',
-        'options': '-vn -af "volume=1.0" -bufsize 2048k -ac 2 -ar 48000 -b:a 192k'
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+        'options': '-vn -af "volume=1.0" -bufsize 2048k -ac 2 -ar 48000'
     }
 }
 
-FFMPEG_OPTIONS = QUALITY_PRESETS['medium']  # Среднее качество по умолчанию для экономии трафика
+FFMPEG_OPTIONS = QUALITY_PRESETS['medium']
 
-# НАСТРОЙКИ ПУТЕЙ ДЛЯ RAILWAY
+# НАСТРОЙКИ ПУТЕЙ
 if os.getenv('RAILWAY_ENVIRONMENT'):
     PLAYLISTS_DIR = "/app/data/playlists"
     print("🚄 Режим Railway: используем persistent storage")
