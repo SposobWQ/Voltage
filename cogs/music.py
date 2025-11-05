@@ -5,6 +5,7 @@ import asyncio
 from utils.audio_source import YTDLSource
 from utils.pagination import PaginationView
 from config import ADMIN_ROLE_NAMES, BOT_OWNER_ID, FFMPEG_OPTIONS
+from cogs.playlist import Playlist
 
 def is_admin():
     async def predicate(interaction: discord.Interaction):
