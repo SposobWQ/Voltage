@@ -34,23 +34,39 @@ class MusicBot(commands.Bot):
         print(f'📊 ID бота: {self.user.id}')
         print('🔒 SSL фикс активирован')
         
-        activity = discord.Activity(type=discord.ActivityType.listening, name="/play | Качество: high")
+        # Показываем информацию о среде
+        if os.getenv('RAILWAY_ENVIRONMENT'):
+            print('🚄 Запущено на Railway')
+        else:
+            print('💻 Локальный запуск')
+        
+        activity = discord.Activity(type=discord.ActivityType.listening, name="/play | Railway")
         await self.change_presence(activity=activity)
 
 async def main():
     if not BOT_TOKEN:
         print("❌ BOT_TOKEN не найден!")
+        print("💡 Убедитесь, что переменная установлена в Railway Dashboard")
         return
     
-    print("🚀 Запуск бота с улучшенным качеством звука...")
+    print("🚀 Запуск бота на Railway...")
+    
+    # Проверяем наличие необходимых файлов
+    if not os.path.exists('youtube_cookies.json'):
+        print("⚠️ Файл youtube_cookies.json не найден. Возрастные ограничения не будут обходиться.")
+    else:
+        print("✅ Файл cookies найден")
+    
     bot = MusicBot()
     
     try:
         await bot.start(BOT_TOKEN)
     except KeyboardInterrupt:
         print("🛑 Бот остановлен")
+    except discord.PrivilegedIntentsRequired:
+        print("❌ Ошибка: Privileged Intents не включены в Discord Developer Portal")
     except Exception as e:
-        print(f"❌ Ошибка: {e}")
+        print(f"❌ Критическая ошибка: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -3,15 +3,22 @@ builder = "nixpacks"
 
 [deploy]
 startCommand = "python main.py"
+healthcheckPath = "/"
+healthcheckTimeout = 300
 
 [[services]]
 name = "discord-bot"
-
+  
 [services.env]
 BOT_TOKEN = "{{.Secrets.BOT_TOKEN}}"
 BOT_OWNER_ID = "{{.Secrets.BOT_OWNER_ID}}"
 
-# НАСТРОЙКА ТОМА ДЛЯ СОХРАНЕНИЯ ДАННЫХ
+# Persistent storage для данных
 [[mounts]]
 name = "music-bot-data"
 mountPath = "/app/data"
+
+# Переменные для оптимизации
+[services.env]
+PYTHONUNBUFFERED = "1"
+PYTHONHASHSEED = "0"

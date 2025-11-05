@@ -24,6 +24,7 @@
   <ItemGroup>
     <Compile Include="check_ffmpeg.py" />
     <Compile Include="cogs\playlist.py" />
+    <Compile Include="get_cookies.py" />
     <Compile Include="utils\audio_source.py" />
     <Compile Include="cogs\music.py" />
     <Compile Include="utils\pagination.py" />
