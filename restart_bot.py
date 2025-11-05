@@ -9,7 +9,7 @@ def restart_bot():
     time.sleep(10)  # Ждем 10 секунд перед перезапуском
     os.execv(sys.executable, ['python'] + sys.argv)
 
-if __name__ == "__main__":
+if __name__ == "main":
     try:
         # Запускаем основной бот
         subprocess.run([sys.executable, 'main.py'])
