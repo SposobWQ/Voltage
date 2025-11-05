@@ -3,13 +3,23 @@ import ssl
 import random
 from dotenv import load_dotenv
 
+# Загружаем переменные окружения
 load_dotenv()
+
+print("⚙️ Загрузка конфигурации...")
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 
-# SSL фикс
+# Проверяем наличие токена
+if not BOT_TOKEN:
+    print("❌ BOT_TOKEN не найден в переменных окружения!")
+else:
+    print("✅ BOT_TOKEN загружен")
+
+# SSL фикс для обхода проблем с сертификатами
 ssl._create_default_https_context = ssl._create_unverified_context
 os.environ['PYTHONHTTPSVERIFY'] = '0'
+print("🔒 SSL фикс активирован")
 
 # Проверяем куки файл
 COOKIES_LOADED = False
@@ -18,8 +28,13 @@ COOKIES_PATH = "youtube_cookies.txt"
 def check_cookies_file():
     """Проверяем куки файл в формате Netscape"""
     global COOKIES_LOADED
+    print(f"🔍 Проверка файла куки: {COOKIES_PATH}")
+    
     try:
         if os.path.exists(COOKIES_PATH):
+            file_size = os.path.getsize(COOKIES_PATH)
+            print(f"📁 Файл куки найден, размер: {file_size} байт")
+            
             with open(COOKIES_PATH, 'r', encoding='utf-8') as f:
                 content = f.read()
             
@@ -27,24 +42,34 @@ def check_cookies_file():
             if '# Netscape HTTP Cookie File' in content:
                 # Считаем количество куки (не комментарные строки)
                 lines = content.split('\n')
-                cookie_count = sum(1 for line in lines if line and not line.startswith('#'))
+                cookie_count = sum(1 for line in lines if line and not line.startswith('#') and '\t' in line)
+                
+                print(f"🍪 Найдено {cookie_count} куки в файле")
                 
                 # Проверяем есть ли важные куки
                 important_cookies = ['__Secure-3PSID', '__Secure-3PAPISID', 'LOGIN_INFO']
-                found_important = any(any(important in line for line in lines) for important in important_cookies)
+                found_important = []
+                
+                for line in lines:
+                    for important in important_cookies:
+                        if important in line and not line.startswith('#'):
+                            found_important.append(important)
+                            break
                 
                 if found_important:
-                    print(f"✅ Загружено {cookie_count} куки в Netscape формате")
+                    print(f"✅ Важные куки найдены: {', '.join(set(found_important))}")
                     COOKIES_LOADED = True
                     return COOKIES_PATH
                 else:
-                    print("⚠️ Куки файл есть, но важные куки не найдены")
+                    print("⚠️ Файл куки есть, но важные куки не найдены")
+                    print("💡 Убедитесь что вы залогинены в YouTube")
                     return None
             else:
-                print("⚠️ Файл куки не в Netscape формате")
+                print("❌ Файл куки не в Netscape формате")
                 return None
         else:
-            print("❌ Файл куки не найден. Возрастные ограничения не будут обходиться.")
+            print("❌ Файл куки не найден")
+            print("💡 Создайте файл через get_cookies.py на своем ПК")
             return None
     except Exception as e:
         print(f"❌ Ошибка загрузки куки: {e}")
@@ -52,12 +77,15 @@ def check_cookies_file():
 
 COOKIES_FILE = check_cookies_file()
 
-# Случайный User-Agent
+# Случайный User-Agent для избежания блокировок
 USER_AGENTS = [
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
 ]
+
+selected_agent = random.choice(USER_AGENTS)
+print(f"🌐 Используется User-Agent: {selected_agent[:50]}...")
 
 # НАСТРОЙКИ YT-DLP
 YDL_OPTIONS = {
@@ -80,7 +108,7 @@ YDL_OPTIONS = {
     'sleep_interval': 1,
     'max_sleep_interval': 2,
     'http_headers': {
-        'User-Agent': random.choice(USER_AGENTS),
+        'User-Agent': selected_agent,
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-us,en;q=0.5',
         'Accept-Encoding': 'gzip,deflate',
@@ -93,11 +121,15 @@ YDL_OPTIONS = {
 if COOKIES_FILE and COOKIES_LOADED:
     YDL_OPTIONS['cookiefile'] = COOKIES_FILE
     print("🎯 Куки активированы - возрастные ограничения будут обходиться")
+else:
+    print("⚠️ Куки не активированы - возрастные ограничения НЕ будут обходиться")
 
+# Настройки FFmpeg
 FFMPEG_OPTIONS = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'options': '-vn -af "volume=0.5"'
 }
+print("🎵 Настройки FFmpeg загружены")
 
 # Настройки путей
 if os.getenv('RAILWAY_ENVIRONMENT'):
@@ -107,9 +139,17 @@ else:
     PLAYLISTS_DIR = "./data/playlists"
     print("💻 Локальный режим")
 
+# Создаем директорию для плейлистов
 os.makedirs(PLAYLISTS_DIR, exist_ok=True)
+print(f"📁 Директория плейлистов: {PLAYLISTS_DIR}")
 
+# Настройки прав
 ADMIN_ROLE_NAMES = ['Admin', 'Administrator', 'Модератор', 'Moderator']
 BOT_OWNER_ID = int(os.getenv('BOT_OWNER_ID', '0'))
 
-print("✅ Конфигурация загружена")
+if BOT_OWNER_ID:
+    print(f"👑 Владелец бота: {BOT_OWNER_ID}")
+else:
+    print("👑 Владелец бота не указан")
+
+print("✅ Конфигурация успешно загружена!")

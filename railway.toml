@@ -2,4 +2,4 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "python restart_bot.py"
+startCommand = "python main.py"
