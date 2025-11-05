@@ -16,6 +16,12 @@ class MusicBot(commands.Bot):
         super().__init__(command_prefix='!', intents=intents)
 
     async def setup_hook(self):
+        # Создаем пустой файл cookies если его нет
+        if not os.path.exists('youtube_cookies.json'):
+            print("⚠️ Файл cookies не найден, создаем пустой...")
+            with open('youtube_cookies.json', 'w') as f:
+                f.write('[]')
+        
         try:
             await self.load_extension('cogs.music')
             await self.load_extension('cogs.playlist')
@@ -32,13 +38,24 @@ class MusicBot(commands.Bot):
     async def on_ready(self):
         print(f'✅ Бот {self.user} запущен!')
         print(f'📊 ID бота: {self.user.id}')
-        print('🔒 SSL фикс активирован')
         
         # Показываем информацию о среде
         if os.getenv('RAILWAY_ENVIRONMENT'):
             print('🚄 Запущено на Railway')
         else:
             print('💻 Локальный запуск')
+        
+        # Проверяем cookies
+        try:
+            import json
+            with open('youtube_cookies.json', 'r') as f:
+                cookies = json.load(f)
+            if len(cookies) > 0:
+                print(f"🔑 Загружено {len(cookies)} cookies для обхода ограничений")
+            else:
+                print("⚠️ Файл cookies пуст - возрастные ограничения не будут обходиться")
+        except:
+            print("❌ Ошибка загрузки cookies")
         
         activity = discord.Activity(type=discord.ActivityType.listening, name="/play | Railway")
         await self.change_presence(activity=activity)
@@ -50,12 +67,6 @@ async def main():
         return
     
     print("🚀 Запуск бота на Railway...")
-    
-    # Проверяем наличие необходимых файлов
-    if not os.path.exists('youtube_cookies.json'):
-        print("⚠️ Файл youtube_cookies.json не найден. Возрастные ограничения не будут обходиться.")
-    else:
-        print("✅ Файл cookies найден")
     
     bot = MusicBot()
     
