@@ -72,5 +72,6 @@ print(f"📁 Директория плейлистов: {PLAYLISTS_DIR}")
 
 ADMIN_ROLE_NAMES = ['Admin', 'Administrator', 'Модератор', 'Moderator']
 BOT_OWNER_ID = int(os.getenv('BOT_OWNER_ID', '0'))
+IS_RAILWAY = os.getenv('RAILWAY_ENVIRONMENT') is not None
 
 print("✅ Конфигурация успешно загружена!")
