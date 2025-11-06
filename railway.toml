@@ -2,4 +2,10 @@
 builder = "nixpacks"
 
 [deploy]
-startCommand = "python main.py"
+startCommand = "python -u main.py"
+
+[service]
+name = "discord-bot"
+
+[service.env]
+PYTHONUNBUFFERED = "1"
