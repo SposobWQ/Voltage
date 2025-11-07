@@ -295,8 +295,9 @@ class Playlist(commands.Cog):
                 print(f"Ошибка при добавлении песни {song_info['title']}: {e}")
                 continue
         
+        # ФИКС: Добавляем await
         if not voice_client.is_playing() and queue:
-            music_cog.play_next(guild_id)
+            await music_cog.play_next(guild_id)
         
         embed = discord.Embed(
             title="🎵 Плейлист добавлен в очередь",

@@ -58,7 +58,7 @@ class Music(commands.Cog):
             if hasattr(song, 'volume'):
                 song.volume = volume_level
 
-    async def play_next(self, guild_id):
+    async def play_next(self, guild_id):  # ← Должен быть async
         queue = self.get_queue(guild_id)
         if queue and guild_id in self.voice_clients:
             voice_client = self.voice_clients[guild_id]
