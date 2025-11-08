@@ -15,8 +15,3 @@ PYTHONUNBUFFERED = "1"
 [[mounts]]
 name = "music-bot-data"
 mountPath = "/app/data"
-
-[services.env]
-BOT_TOKEN = "{{.Secrets.BOT_TOKEN}}"
-BOT_OWNER_ID = "{{.Secrets.BOT_OWNER_ID}}"
-PYTHONUNBUFFERED = "1"
