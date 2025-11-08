@@ -3,14 +3,25 @@ builder = "nixpacks"
 
 [deploy]
 startCommand = "python start_bot.py"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10
 
 [[services]]
 name = "discord-bot"
+port = 8080
 
 [services.env]
 BOT_TOKEN = "{{.Secrets.BOT_TOKEN}}"
 BOT_OWNER_ID = "{{.Secrets.BOT_OWNER_ID}}"
 PYTHONUNBUFFERED = "1"
+AIOHTTP_NO_EXTENSIONS = "1"
+
+[[services.healthchecks]]
+name = "bot-health"
+path = "/"
+port = 8080
+initialDelay = 30
+timeout = 10
 
 [[mounts]]
 name = "music-bot-data"

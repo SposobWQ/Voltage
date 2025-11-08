@@ -4,6 +4,7 @@ import sys
 import asyncio
 import time
 import subprocess
+from railway_fix import apply_railway_fixes, test_discord_connection
 
 def check_environment():
     """Проверяет окружение"""
@@ -21,28 +22,32 @@ def check_environment():
 
 async def start_bot_with_retry():
     """Запускает бота с повторными попытками"""
-    max_retries = 5
-    retry_delay = 30  # секунд
+    max_retries = 10  # Увеличиваем количество попыток
+    retry_delay = 10  # Начинаем с 10 секунд
     
     for attempt in range(max_retries):
         print(f"🔄 Попытка запуска {attempt + 1}/{max_retries}...")
         
-        try:
-            # Запускаем основной скрипт
-            from main import main
-            await main()
-            break
+        # Тестируем подключение перед запуском
+        if await test_discord_connection():
+            try:
+                # Запускаем основной скрипт
+                from main import main
+                await main()
+                break
+                
+            except Exception as e:
+                print(f"❌ Попытка {attempt + 1} не удалась: {e}")
+        else:
+            print(f"❌ Не удалось подключиться к Discord, попытка {attempt + 1}")
             
-        except Exception as e:
-            print(f"❌ Попытка {attempt + 1} не удалась: {e}")
-            
-            if attempt < max_retries - 1:
-                print(f"⏳ Повторная попытка через {retry_delay} секунд...")
-                await asyncio.sleep(retry_delay)
-                retry_delay *= 2  # Экспоненциальная задержка
-            else:
-                print("💥 Все попытки запуска провалились")
-                sys.exit(1)
+        if attempt < max_retries - 1:
+            print(f"⏳ Повторная попытка через {retry_delay} секунд...")
+            await asyncio.sleep(retry_delay)
+            retry_delay = min(retry_delay * 1.5, 120)  # Экспоненциальная задержка, максимум 2 минуты
+        else:
+            print("💥 Все попытки запуска провалились")
+            sys.exit(1)
 
 async def health_check():
     """Простой health check в фоне"""
@@ -54,6 +59,9 @@ async def main():
     print("=" * 50)
     print("🎵 ЗАПУСК ДИСКОРД БОТА (УСИЛЕННАЯ ВЕРСИЯ)")
     print("=" * 50)
+    
+    # Применяем фиксы
+    apply_railway_fixes()
     
     # Проверяем окружение
     if not check_environment():

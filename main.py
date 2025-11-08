@@ -3,10 +3,9 @@ from discord.ext import commands
 import os
 import asyncio
 import ssl
-import subprocess
 import sys
-import socket
 from config import BOT_TOKEN
+import aiohttp
 
 # Настраиваем вывод логов
 print("🚀 Инициализация бота на Railway...")
@@ -23,11 +22,29 @@ class MusicBot(commands.Bot):
         intents = discord.Intents.default()
         intents.message_content = True
         
+        # Кастомные настройки HTTP
+        http_client = discord.http.HTTPClient()
+        http_client._session = self.create_custom_session()
+        
         super().__init__(
             command_prefix='!', 
             intents=intents,
-            reconnect=True
+            reconnect=True,
+            http_client=http_client
         )
+
+    def create_custom_session(self):
+        """Создает кастомную сессию с увеличенными таймаутами"""
+        timeout = aiohttp.ClientTimeout(total=60, connect=30, sock_connect=30, sock_read=60)
+        connector = aiohttp.TCPConnector(
+            limit=100,
+            limit_per_host=30,
+            keepalive_timeout=30,
+            enable_cleanup_closed=True,
+            use_dns_cache=True,
+            verify_ssl=False
+        )
+        return aiohttp.ClientSession(timeout=timeout, connector=connector)
 
     async def setup_hook(self):
         print("🔧 Настройка бота...")
@@ -83,6 +100,12 @@ class MusicBot(commands.Bot):
         activity = discord.Activity(type=discord.ActivityType.listening, name="/play | Railway")
         await self.change_presence(activity=activity)
 
+    async def close(self):
+        """Корректное закрытие сессии"""
+        if hasattr(self.http, '_session') and self.http._session:
+            await self.http._session.close()
+        await super().close()
+
 async def main():
     print("=" * 50)
     print("🚀 ЗАПУСК ДИСКОРД БОТА НА RAILWAY")
@@ -108,11 +131,16 @@ async def main():
         traceback.print_exc()
     finally:
         print("👋 Завершение работы бота")
+        if not bot.is_closed():
+            await bot.close()
 
 if __name__ == "__main__":
     # Принудительно сбрасываем буфер вывода для Railway
     sys.stdout.reconfigure(line_buffering=True)
     sys.stderr.reconfigure(line_buffering=True)
+    
+    # Увеличиваем лимиты asyncio
+    asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
     
     try:
         asyncio.run(main())

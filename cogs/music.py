@@ -58,26 +58,26 @@ class Music(commands.Cog):
             if hasattr(song, 'volume'):
                 song.volume = volume_level
 
-    async def play_next(self, guild_id):  # ← Должен быть async
+    async def play_next(self, guild_id):
+        """Воспроизведение следующего трека в очереди"""
         queue = self.get_queue(guild_id)
-        if queue and guild_id in self.voice_clients:
-            voice_client = self.voice_clients[guild_id]
-            if not voice_client.is_playing():
-                next_song = queue.pop(0)
-                
-                # Устанавливаем громкость для следующего трека
-                volume = self.get_volume_setting(guild_id)
-                if hasattr(next_song, 'volume'):
-                    next_song.volume = volume
-                
-                await asyncio.sleep(0.1)
-                
-                def after_play(error):
-                    if error:
-                        print(f'Ошибка воспроизведения: {error}')
-                    asyncio.run_coroutine_threadsafe(self.play_next(guild_id), self.bot.loop)
-                
-                voice_client.play(next_song, after=after_play)
+    if queue and guild_id in self.voice_clients:
+        voice_client = self.voice_clients[guild_id]
+        if not voice_client.is_playing():
+            next_song = queue.pop(0)
+            
+            # Устанавливаем громкость для следующего трека
+            volume = self.get_volume_setting(guild_id)
+            if hasattr(next_song, 'volume'):
+                next_song.volume = volume
+            
+            def after_play(error):
+                if error:
+                    print(f'Ошибка воспроизведения: {error}')
+                # Запускаем следующий трек
+                asyncio.run_coroutine_threadsafe(self.play_next(guild_id), self.bot.loop)
+            
+            voice_client.play(next_song, after=after_play)
 
     class SongSelect(discord.ui.Select):
         def __init__(self, songs, music_cog):
