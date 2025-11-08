@@ -1,12 +1,11 @@
 import os
 import ssl
-import random
 from dotenv import load_dotenv
 
 # Загружаем переменные окружения
 load_dotenv()
 
-print("⚙️ Загрузка конфигурации...")
+print("⚙️ Загрузка конфигурации для Railway...")
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 
@@ -18,16 +17,12 @@ else:
 # SSL фикс
 ssl._create_default_https_context = ssl._create_unverified_context
 os.environ['PYTHONHTTPSVERIFY'] = '0'
-print("🔒 SSL фикс активирован")
 
 # Проверяем куки файл
-COOKIES_LOADED = False
 COOKIES_FILE = 'cookies.txt'
-
 if os.path.exists(COOKIES_FILE):
     file_size = os.path.getsize(COOKIES_FILE)
-    print(f"✅ Файл куки найден: {COOKIES_FILE} ({file_size} байт)")
-    COOKIES_LOADED = True
+    print(f"✅ Файл куки найден: {file_size} байт")
 else:
     print("⚠️ Файл куки не найден")
 
@@ -42,17 +37,12 @@ YDL_OPTIONS = {
     'default_search': 'auto',
     'socket_timeout': 30,
     'extract_flat': False,
-    'http_headers': {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    },
 }
 
 # Добавляем куки если они загружены
-if COOKIES_LOADED:
+if os.path.exists(COOKIES_FILE):
     YDL_OPTIONS['cookiefile'] = COOKIES_FILE
-    print("🎯 Куки активированы - возрастные ограничения будут обходиться")
-else:
-    print("⚠️ Куки не активированы")
+    print("🎯 Куки активированы")
 
 FFMPEG_OPTIONS = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
@@ -60,18 +50,11 @@ FFMPEG_OPTIONS = {
 }
 
 # Настройки путей
-if os.getenv('RAILWAY_ENVIRONMENT'):
-    PLAYLISTS_DIR = "/app/data/playlists"
-    print("🚄 Режим Railway: используем persistent storage")
-else:
-    PLAYLISTS_DIR = "./data/playlists"
-    print("💻 Локальный режим")
-
+PLAYLISTS_DIR = "/app/data/playlists"
 os.makedirs(PLAYLISTS_DIR, exist_ok=True)
 print(f"📁 Директория плейлистов: {PLAYLISTS_DIR}")
 
 ADMIN_ROLE_NAMES = ['Admin', 'Administrator', 'Модератор', 'Moderator']
 BOT_OWNER_ID = int(os.getenv('BOT_OWNER_ID', '0'))
-IS_RAILWAY = os.getenv('RAILWAY_ENVIRONMENT') is not None
 
 print("✅ Конфигурация успешно загружена!")
