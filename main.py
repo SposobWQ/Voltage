@@ -6,6 +6,7 @@ import ssl
 import subprocess
 import sys
 import aiohttp
+import socket  # ← ДОБАВЬ ЭТУ СТРОКУ
 from config import BOT_TOKEN
 
 # Настраиваем вывод логов
@@ -75,12 +76,6 @@ class MusicBot(commands.Bot):
         activity = discord.Activity(type=discord.ActivityType.listening, name="/play | Railway")
         await self.change_presence(activity=activity)
 
-    async def on_disconnect(self):
-        print("🔌 Бот отключен от Discord")
-
-    async def on_resumed(self):
-        print("🔁 Соединение с Discord восстановлено")
-
 async def main():
     print("=" * 50)
     print("🚀 ЗАПУСК ДИСКОРД БОТА НА RAILWAY")
@@ -95,19 +90,9 @@ async def main():
     
     bot = MusicBot()
     
-    # Настройки aiohttp для Railway
-    connector = aiohttp.TCPConnector(
-        limit=100,
-        limit_per_host=100,
-        ttl_dns_cache=300,
-        family=socket.AF_INET  # Принудительно IPv4
-    )
-    
     try:
         print("🔗 Подключение к Discord...")
-        async with aiohttp.ClientSession(connector=connector) as session:
-            bot.http.session = session
-            await bot.start(BOT_TOKEN)
+        await bot.start(BOT_TOKEN)
             
     except KeyboardInterrupt:
         print("\n🛑 Бот остановлен пользователем")
@@ -129,14 +114,9 @@ async def main():
             await bot.close()
 
 if __name__ == "__main__":
-    import socket
-    
     # Принудительно сбрасываем буфер вывода для Railway
     sys.stdout.reconfigure(line_buffering=True)
     sys.stderr.reconfigure(line_buffering=True)
-    
-    # Увеличиваем лимиты для asyncio
-    asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
     
     try:
         asyncio.run(main())

@@ -183,3 +183,4 @@ cython_debug/
 *.pyproj
 Voltage.pyproj
 Voltage.pyproj
+*.pyproj

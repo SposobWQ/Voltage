@@ -12,13 +12,6 @@ BOT_TOKEN = "{{.Secrets.BOT_TOKEN}}"
 BOT_OWNER_ID = "{{.Secrets.BOT_OWNER_ID}}"
 PYTHONUNBUFFERED = "1"
 
-# Отключаем healthcheck для Discord бота (он не HTTP)
-# [services.healthcheck]
-# path = "/health"
-# initialDelay = 30
-# timeout = 10
-# period = 60
-
 [[mounts]]
 name = "music-bot-data"
 mountPath = "/app/data"

@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 # Загружаем переменные окружения
 load_dotenv()
 
-print("⚙️ Загрузка конфигурации для Railway...")
+print("⚙️ Загрузка конфигурации...")
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 
@@ -36,7 +36,6 @@ YDL_OPTIONS = {
     'no_warnings': True,
     'default_search': 'auto',
     'socket_timeout': 30,
-    'extract_flat': False,
 }
 
 # Добавляем куки если они загружены
