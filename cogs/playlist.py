@@ -5,7 +5,7 @@ import json
 import os
 import shutil
 from datetime import datetime
-from config import PLAYLISTS_DIR, ADMIN_ROLE_NAMES, BOT_OWNER_ID, IS_RAILWAY
+from config import PLAYLISTS_DIR, ADMIN_ROLE_NAMES, BOT_OWNER_ID
 from utils.audio_source import YTDLSource
 
 def is_admin():
@@ -38,7 +38,6 @@ class Playlist(commands.Cog):
         """Проверка доступного хранилища"""
         storage_info = {
             'playlists_dir': PLAYLISTS_DIR,
-            'is_railway': IS_RAILWAY,
             'writable': False,
             'free_space': 'unknown'
         }
@@ -51,16 +50,14 @@ class Playlist(commands.Cog):
             os.remove(test_file)
             storage_info['writable'] = True
             
-            # Проверяем свободное место (только на Railway)
-            if IS_RAILWAY:
-                try:
-                    stat = os.statvfs(PLAYLISTS_DIR)
-                    free_gb = (stat.f_bavail * stat.f_frsize) / (1024 ** 3)
-                    storage_info['free_space'] = f"{free_gb:.1f} GB"
-                except:
-                    storage_info['free_space'] = "unknown"
-            else:
-                storage_info['free_space'] = "local"
+            # Проверяем свободное место
+            try:
+                import shutil
+                total, used, free = shutil.disk_usage(PLAYLISTS_DIR)
+                free_gb = free / (1024 ** 3)
+                storage_info['free_space'] = f"{free_gb:.1f} GB"
+            except:
+                storage_info['free_space'] = "unknown"
                 
         except Exception as e:
             print(f"⚠️ Предупреждение хранилища: {e}")
@@ -213,11 +210,8 @@ class Playlist(commands.Cog):
         
         if query.startswith(('http', 'www.')):
             try:
-                data = await YTDLSource.get_playlist_info(query)
-                if data and 'entries' in data:
-                    songs = data['entries']
-                else:
-                    songs = [data] if data else []
+                data = await YTDLSource.search_songs(query, limit=1)
+                songs = data if data else []
             except Exception as e:
                 await interaction.followup.send(f"❌ Ошибка при получении информации: {str(e)}")
                 return
@@ -295,9 +289,16 @@ class Playlist(commands.Cog):
                 print(f"Ошибка при добавлении песни {song_info['title']}: {e}")
                 continue
         
-        # ФИКС: Добавляем await
+        # Запускаем воспроизведение если ничего не играет
         if not voice_client.is_playing() and queue:
-            await music_cog.play_next(guild_id)
+            def after_play(error):
+                if error:
+                    print(f'Ошибка воспроизведения: {error}')
+                asyncio.run_coroutine_threadsafe(music_cog.play_next(guild_id), self.bot.loop)
+            
+            if queue:
+                next_song = queue.pop(0)
+                voice_client.play(next_song, after=after_play)
         
         embed = discord.Embed(
             title="🎵 Плейлист добавлен в очередь",
@@ -474,7 +475,6 @@ class Playlist(commands.Cog):
         )
         
         embed.add_field(name="Директория", value=self.storage_info['playlists_dir'], inline=False)
-        embed.add_field(name="Railway", value="Да" if self.storage_info['is_railway'] else "Нет")
         embed.add_field(name="Доступно для записи", value="✅ Да" if self.storage_info['writable'] else "❌ Нет")
         embed.add_field(name="Свободное место", value=self.storage_info['free_space'])
         

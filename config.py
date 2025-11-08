@@ -26,6 +26,19 @@ if os.path.exists(COOKIES_FILE):
 else:
     print("⚠️ Файл куки не найден")
 
+# Определяем окружение
+IS_RAILWAY = os.getenv('RAILWAY_ENVIRONMENT') is not None or os.getenv('RAILWAY') is not None
+
+# Настройки путей
+if IS_RAILWAY:
+    PLAYLISTS_DIR = "/app/data/playlists"
+else:
+    PLAYLISTS_DIR = "./data/playlists"
+
+os.makedirs(PLAYLISTS_DIR, exist_ok=True)
+print(f"📁 Директория плейлистов: {PLAYLISTS_DIR}")
+print(f"🌐 Окружение: {'Railway' if IS_RAILWAY else 'Локальное'}")
+
 # НАСТРОЙКИ YT-DLP
 YDL_OPTIONS = {
     'format': 'bestaudio/best',
@@ -47,11 +60,6 @@ FFMPEG_OPTIONS = {
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'options': '-vn -af "volume=0.5"'
 }
-
-# Настройки путей
-PLAYLISTS_DIR = "/app/data/playlists"
-os.makedirs(PLAYLISTS_DIR, exist_ok=True)
-print(f"📁 Директория плейлистов: {PLAYLISTS_DIR}")
 
 ADMIN_ROLE_NAMES = ['Admin', 'Administrator', 'Модератор', 'Moderator']
 BOT_OWNER_ID = int(os.getenv('BOT_OWNER_ID', '0'))

@@ -82,6 +82,20 @@ class YTDLSource(discord.PCMVolumeTransformer):
         print(f"✅ Найдено результатов: {len(results)}")
         return results
 
+    @classmethod
+    async def get_playlist_info(cls, url):
+        """Получение информации о плейлисте"""
+        loop = asyncio.get_event_loop()
+        
+        def extract():
+            try:
+                return ytdl.extract_info(url, download=False)
+            except Exception as e:
+                print(f"❌ Ошибка получения информации о плейлисте: {e}")
+                return None
+        
+        return await loop.run_in_executor(None, extract)
+
 # Инициализация yt-dlp
 try:
     ytdl = yt_dlp.YoutubeDL(YDL_OPTIONS)

@@ -17,17 +17,18 @@ def setup_railway():
     print("✅ Все необходимые переменные окружения установлены")
     
     # Проверяем и создаем директории
-    directories = ['./data', './data/playlists', './data/backups']
+    directories = ['./data', './data/playlists', './data/backups', '/app/data', '/app/data/playlists', '/app/data/backups']
     for directory in directories:
         os.makedirs(directory, exist_ok=True)
         print(f"✅ Создана директория: {directory}")
     
     # Проверяем cookies
-    if os.path.exists('youtube_cookies.json'):
+    if os.path.exists('cookies.txt'):
         try:
-            with open('youtube_cookies.json', 'r') as f:
-                cookies = json.load(f)
-            print(f"✅ Файл cookies найден: {len(cookies)} cookies")
+            with open('cookies.txt', 'r') as f:
+                content = f.read()
+            cookie_count = len([line for line in content.split('\n') if line and not line.startswith('#')])
+            print(f"✅ Файл cookies найден: {cookie_count} cookies")
         except Exception as e:
             print(f"❌ Ошибка чтения cookies: {e}")
     else:
